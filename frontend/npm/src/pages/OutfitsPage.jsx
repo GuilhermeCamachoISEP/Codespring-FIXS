@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react"
-import { getOutfits } from "../services/api"
+import { getOutfits, saveOutfitHistory } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import AppHeader from "../components/AppHeader"
 import { RefreshCw } from "../components/Icons"
@@ -57,6 +57,7 @@ export default function OutfitsPage() {
   const [regenerating, setRegenerating] = useState(false)
   const [error, setError]       = useState("")
   const coords = useRef(null)
+  const lastSavedOutfitStr = useRef("")
 
   // On mount: serve cache immediately, only hit the API if nothing is cached
   useEffect(() => {
@@ -95,6 +96,15 @@ export default function OutfitsPage() {
       setOutfit(single)
       setWeather(data.weather ?? null)
       setAdvisory(data.advisory ?? null)
+      // Auto-save generated outfits asynchronously
+      if (data.outfits && data.outfits.length > 0) {
+        const currentOutfitStr = JSON.stringify(data.outfits[0].items)
+        if (lastSavedOutfitStr.current !== currentOutfitStr) {
+            lastSavedOutfitStr.current = currentOutfitStr;
+            Promise.all(data.outfits.map(o => saveOutfitHistory(o.items)))
+                .catch(e => console.error("Failed to save outfit history", e))
+        }
+      }
       saveCache(user?.id, single, data.weather ?? null, data.advisory ?? null)
     } catch (err) {
       setError("Erro ao gerar outfit: " + err.message)

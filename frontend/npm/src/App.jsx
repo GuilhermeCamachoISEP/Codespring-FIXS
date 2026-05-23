@@ -14,6 +14,7 @@ import Landing from "./pages/Landing"
 import SettingsStyles from "./pages/SettingsStyles"
 import EventOutfits from "./pages/EventOutfits"
 import ProfilePage from "./pages/ProfilePage"
+import Lookbook from "./pages/Lookbook"
 
 function ProtectedRoute({ children }) {
     const { user } = useAuth()
@@ -62,6 +63,7 @@ function AppRoutes() {
             <Route path="/outfits" element={<ProtectedRoute><OnboardingGate><OutfitsPage /></OnboardingGate></ProtectedRoute>} />
             <Route path="/wardrobe" element={<ProtectedRoute><OnboardingGate><WardrobeGallery /></OnboardingGate></ProtectedRoute>} />
             <Route path="/wardrobe/upload" element={<ProtectedRoute><OnboardingGate><WardrobeUpload /></OnboardingGate></ProtectedRoute>} />
+            <Route path="/lookbook" element={<ProtectedRoute><OnboardingGate><Lookbook /></OnboardingGate></ProtectedRoute>} />
             <Route path="/chat" element={<ProtectedRoute><OnboardingGate><ChatPage /></OnboardingGate></ProtectedRoute>} />
             <Route path="/preferences" element={<ProtectedRoute><OnboardingGate><SettingsStyles /></OnboardingGate></ProtectedRoute>} />
             <Route path="/events/outfits" element={<ProtectedRoute><OnboardingGate><EventOutfits /></OnboardingGate></ProtectedRoute>} />
