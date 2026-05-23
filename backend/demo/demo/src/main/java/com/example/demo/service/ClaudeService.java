@@ -14,6 +14,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Base64;
 import java.util.List;
+import com.example.demo.dto.ChatRequest;
 
 @Service
 public class ClaudeService {
@@ -57,13 +58,7 @@ public class ClaudeService {
             String base64 = Base64.getEncoder().encodeToString(imageBytes);
             String body = buildRequestBody(base64, mediaType, categoryHint);
 
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(geminiUrl()))
-                    .header("content-type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(body))
-                    .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = executeWithRetryAndFallback(objectMapper.readTree(body));
 
             if (response.statusCode() != 200) {
                 System.err.println("Gemini API error " + response.statusCode() + ": " + response.body());
@@ -149,13 +144,7 @@ public class ClaudeService {
             requestBody.set("contents", contentsArray);
             requestBody.set("generationConfig", generationConfig);
 
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(geminiUrl()))
-                    .header("content-type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
-                    .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = executeWithRetryAndFallback(requestBody);
 
             if (response.statusCode() != 200) {
                 System.err.println("Gemini outfit API error " + response.statusCode() + ": " + response.body());
@@ -169,6 +158,63 @@ public class ClaudeService {
         } catch (Exception e) {
             System.err.println("Gemini outfit generation failed: " + e.getMessage());
             return "[]";
+        }
+    }
+
+    public String chat(String systemPrompt, List<ChatRequest.ChatMessage> history, String newMessage) {
+        try {
+            if (!isConfigured()) return "AI não configurada no backend.";
+
+            var requestBody = objectMapper.createObjectNode();
+
+            if (systemPrompt != null && !systemPrompt.isBlank()) {
+                var sysInstruction = objectMapper.createObjectNode();
+                var sysParts = objectMapper.createArrayNode();
+                sysParts.add(objectMapper.createObjectNode().put("text", systemPrompt));
+                sysInstruction.set("parts", sysParts);
+                requestBody.set("systemInstruction", sysInstruction);
+            }
+
+            var contentsArray = objectMapper.createArrayNode();
+
+            if (history != null) {
+                for (var msg : history) {
+                    var content = objectMapper.createObjectNode()
+                            .put("role", msg.getRole() != null ? msg.getRole() : "user");
+                    var partsArray = objectMapper.createArrayNode();
+                    partsArray.add(objectMapper.createObjectNode().put("text", msg.getContent()));
+                    content.set("parts", partsArray);
+                    contentsArray.add(content);
+                }
+            }
+
+            var newContent = objectMapper.createObjectNode().put("role", "user");
+            var newPartsArray = objectMapper.createArrayNode();
+            newPartsArray.add(objectMapper.createObjectNode().put("text", newMessage));
+            newContent.set("parts", newPartsArray);
+            contentsArray.add(newContent);
+
+            requestBody.set("contents", contentsArray);
+
+            var generationConfig = objectMapper.createObjectNode()
+                    .put("temperature", 0.7)
+                    .put("maxOutputTokens", 2048);
+            
+            requestBody.set("generationConfig", generationConfig);
+
+            HttpResponse<String> response = executeWithRetryAndFallback(requestBody);
+
+            if (response.statusCode() != 200) {
+                System.err.println("Gemini chat API error " + response.statusCode() + ": " + response.body());
+                return "Desculpa, ocorreu um erro ao contactar a IA.";
+            }
+
+            String text = extractGeminiText(response.body());
+            return text;
+
+        } catch (Exception e) {
+            System.err.println("Gemini chat failed: " + e.getMessage());
+            return "Desculpa, ocorreu um erro interno.";
         }
     }
 
@@ -193,13 +239,7 @@ public class ClaudeService {
             requestBody.set("contents", contentsArray);
             requestBody.set("generationConfig", generationConfig);
 
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(geminiUrl()))
-                    .header("content-type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
-                    .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = executeWithRetryAndFallback(requestBody);
 
             if (response.statusCode() != 200) {
                 System.err.println("Gemini generateJson error " + response.statusCode() + ": " + response.body());
@@ -217,6 +257,38 @@ public class ClaudeService {
 
     private String geminiUrl() {
         return API_URL.formatted(model, apiKey);
+    }
+
+    private HttpResponse<String> executeWithRetryAndFallback(JsonNode requestBody) throws Exception {
+        int maxRetries = 3;
+        int attempt = 0;
+        String currentModel = model;
+        HttpResponse<String> lastResponse = null;
+
+        while (attempt < maxRetries) {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(API_URL.formatted(currentModel, apiKey)))
+                    .header("content-type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
+                    .build();
+
+            lastResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (lastResponse.statusCode() == 200) {
+                return lastResponse;
+            } else if (lastResponse.statusCode() == 503 || lastResponse.statusCode() == 429) {
+                attempt++;
+                System.err.println("Gemini overloaded (" + lastResponse.statusCode() + "). Retrying " + attempt + "/" + maxRetries);
+                if (attempt == 2) {
+                    currentModel = "gemini-1.5-flash"; // Fallback to ultra-stable model
+                    System.err.println("Falling back to stable model: " + currentModel);
+                }
+                Thread.sleep(1500L * attempt);
+            } else {
+                return lastResponse; // other errors like 400, 404 should fail fast
+            }
+        }
+        return lastResponse;
     }
 
     private String extractGeminiText(String responseBody) throws Exception {

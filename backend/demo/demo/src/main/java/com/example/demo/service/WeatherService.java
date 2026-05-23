@@ -52,7 +52,8 @@ public class WeatherService {
                     weatherIcon(weatherCode)
             );
         } catch (Exception e) {
-            throw new RuntimeException("Failed to fetch weather: " + e.getMessage(), e);
+            System.err.println("Weather API failed (" + e.getMessage() + "), returning null weather.");
+            return null;
         }
     }
 

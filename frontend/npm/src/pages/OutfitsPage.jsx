@@ -187,11 +187,14 @@ function OutfitCard({ outfit }) {
         {outfit.items.map(item => (
           <div key={item.id} className="outfit-card-item">
             <img
-              src={`http://localhost:8080${item.imageUrl}`}
+              src={item.imageUrl?.startsWith("http") ? item.imageUrl : `http://localhost:8080${item.imageUrl}`}
               alt={item.subcategory}
               loading="lazy"
             />
-            <div className="outfit-card-item-label">{item.color} {item.subcategory}</div>
+            <div className="outfit-card-item-label">
+                <span>{item.color} {item.subcategory}</span>
+                <span className="tag tag-category" style={{marginLeft: "4px"}}>{item.category}</span>
+            </div>
           </div>
         ))}
       </div>

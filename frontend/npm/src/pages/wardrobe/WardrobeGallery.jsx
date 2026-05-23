@@ -123,7 +123,7 @@ export default function WardrobeGallery() {
               onClick={() => setSelected(selected?.id === item.id ? null : item)}
             >
               <img
-                src={`http://localhost:8080${item.imageUrl}`}
+                src={item.imageUrl?.startsWith("http") ? item.imageUrl : `http://localhost:8080${item.imageUrl}`}
                 alt={item.subcategory}
                 loading="lazy"
               />
@@ -143,7 +143,7 @@ export default function WardrobeGallery() {
               <X style={{ width: 14, height: 14 }} />
             </button>
             <img
-              src={`http://localhost:8080${selected.imageUrl}`}
+              src={selected.imageUrl?.startsWith("http") ? selected.imageUrl : `http://localhost:8080${selected.imageUrl}`}
               alt={selected.subcategory}
               className="detail-img"
             />

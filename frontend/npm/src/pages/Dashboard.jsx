@@ -94,6 +94,16 @@ export default function Dashboard() {
                         <span className="dash-arrow">→</span>
                     </div>
 
+                    {/* Chat AI Stylist card */}
+                    <div className="dash-card dash-card-accent" onClick={() => navigate("/chat")}>
+                        <div className="dash-card-icon">💬</div>
+                        <div className="dash-card-body">
+                            <h3>AI Stylist Chat</h3>
+                            <p>Conversa com o teu assistente pessoal</p>
+                        </div>
+                        <span className="dash-arrow">→</span>
+                    </div>
+
                     {/* Weather card */}
                     <div className="dash-card dash-card-weather" onClick={() => navigate("/outfits")}>
                         {weatherState === "loading" && <>
