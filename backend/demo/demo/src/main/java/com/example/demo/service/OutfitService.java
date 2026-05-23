@@ -6,6 +6,9 @@ import com.example.demo.dto.OutfitSuggestion;
 import com.example.demo.dto.WeatherData;
 import com.example.demo.repository.UserPreferencesRepository;
 import com.example.demo.repository.WardrobeItemRepository;
+import com.example.demo.repository.OutfitReservationRepository;
+import com.example.demo.domain.OutfitReservation;
+import java.time.LocalDate;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
@@ -22,15 +25,18 @@ public class OutfitService {
 
     private final WardrobeItemRepository wardrobeItemRepository;
     private final UserPreferencesRepository preferencesRepository;
+    private final OutfitReservationRepository reservationRepository;
     private final ClaudeService claudeService;
     private final ObjectMapper objectMapper;
 
     public OutfitService(WardrobeItemRepository wardrobeItemRepository,
                          UserPreferencesRepository preferencesRepository,
+                         OutfitReservationRepository reservationRepository,
                          ClaudeService claudeService,
                          ObjectMapper objectMapper) {
         this.wardrobeItemRepository = wardrobeItemRepository;
         this.preferencesRepository = preferencesRepository;
+        this.reservationRepository = reservationRepository;
         this.claudeService = claudeService;
         this.objectMapper = objectMapper;
     }
@@ -39,20 +45,58 @@ public class OutfitService {
         List<WardrobeItem> items = wardrobeItemRepository.findByUserIdOrderByCreatedAtDesc(userId);
         if (items.isEmpty()) return List.of();
 
+        List<Long> reservedItemIds = reservationRepository.findByUserIdAndEventDate(userId, LocalDate.now())
+                .stream().map(r -> r.getWardrobeItem().getId()).toList();
+        
+        List<WardrobeItem> availableItems = items.stream()
+                .filter(item -> !reservedItemIds.contains(item.getId()))
+                .toList();
+        
+        if (availableItems.isEmpty()) return List.of();
+
         String styleWeights = preferencesRepository.findByUserId(userId)
                 .map(UserPreferences::getStyleWeights)
                 .orElse("{}");
 
-        String prompt = buildPrompt(items, styleWeights, weather);
+        String prompt = buildPrompt(availableItems, styleWeights, weather, null);
         String json = claudeService.generateOutfitsRaw(prompt);
-        List<OutfitSuggestion> aiOutfits = parseOutfits(json, items);
+        List<OutfitSuggestion> aiOutfits = parseOutfits(json, availableItems);
         if (!aiOutfits.isEmpty()) {
             return aiOutfits;
         }
-        return generateFallbackOutfits(items, styleWeights);
+        return generateFallbackOutfits(availableItems, styleWeights);
     }
 
-    private String buildPrompt(List<WardrobeItem> items, String styleWeights, WeatherData weather) {
+    public List<OutfitSuggestion> generateOutfitsForEvent(Long userId, String eventName, WeatherData weather, LocalDate eventDate) {
+        List<WardrobeItem> items = wardrobeItemRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        if (items.isEmpty()) return List.of();
+        
+        List<Long> reservedItemIds = reservationRepository.findByUserIdAndEventDate(userId, eventDate)
+                .stream()
+                .filter(r -> !r.getEventName().equals(eventName))
+                .map(r -> r.getWardrobeItem().getId())
+                .toList();
+
+        List<WardrobeItem> availableItems = items.stream()
+                .filter(item -> !reservedItemIds.contains(item.getId()))
+                .toList();
+
+        if (availableItems.isEmpty()) return List.of();
+
+        String styleWeights = preferencesRepository.findByUserId(userId)
+                .map(UserPreferences::getStyleWeights)
+                .orElse("{}");
+
+        String prompt = buildPrompt(availableItems, styleWeights, weather, eventName);
+        String json = claudeService.generateOutfitsRaw(prompt);
+        List<OutfitSuggestion> aiOutfits = parseOutfits(json, availableItems);
+        if (!aiOutfits.isEmpty()) {
+            return aiOutfits;
+        }
+        return generateFallbackOutfits(availableItems, styleWeights);
+    }
+
+    private String buildPrompt(List<WardrobeItem> items, String styleWeights, WeatherData weather, String eventName) {
         try {
             var itemNodes = objectMapper.createArrayNode();
             for (WardrobeItem item : items) {
@@ -69,9 +113,10 @@ public class OutfitService {
             }
 
             String weatherContext = buildWeatherContext(weather);
+            String eventContext = eventName != null ? "\nCRIAR OUTFITS ESPECÍFICAMENTE PARA O EVENTO: " + eventName + "\nA temática do evento é a principal prioridade na escolha das peças." : "";
 
             return """
-                    És um stylist de moda pessoal. Com base nas preferências de estilo e no armário do utilizador, cria combinações de outfits.
+                    És um stylist de moda pessoal. Com base nas preferências de estilo e no armário do utilizador, cria combinações de outfits.%s
                     %s
                     Preferências de estilo do utilizador (pesos de 0 a 1):
                     %s
@@ -96,7 +141,7 @@ public class OutfitService {
                         "weatherNote": "Perfeito para este frio"
                       }
                     ]
-                    """.formatted(weatherContext, styleWeights, objectMapper.writeValueAsString(itemNodes));
+                    """.formatted(eventContext, weatherContext, styleWeights, objectMapper.writeValueAsString(itemNodes));
         } catch (Exception e) {
             throw new RuntimeException("Failed to build outfit prompt", e);
         }
@@ -286,7 +331,17 @@ public class OutfitService {
         return "Combina " + pieces + " com uma leitura " + readableStyle(style) + ".";
     }
 
+    public void reserveOutfit(Long userId, String eventName, LocalDate eventDate, List<Long> itemIds) {
+        for (Long itemId : itemIds) {
+            wardrobeItemRepository.findById(itemId).ifPresent(item -> {
+                OutfitReservation res = new OutfitReservation(userId, item, eventDate, eventName);
+                reservationRepository.save(res);
+            });
+        }
+    }
+
     private String safeText(String value) {
+
         return value == null || value.isBlank() ? "peça" : value;
     }
 }

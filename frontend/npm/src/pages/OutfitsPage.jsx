@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import { getOutfits } from "../services/api"
 import AppHeader from "../components/AppHeader"
 import { RefreshCw } from "../components/Icons"
+import CalendarMock from "../components/CalendarMock"
 
 const TEMP_LABELS = {
   "very-cold": "Muito frio",
@@ -57,7 +58,14 @@ export default function OutfitsPage() {
     <div className="app-container">
       <AppHeader />
 
-      {weather && <WeatherBar weather={weather} advisory={advisory} />}
+      <div style={{ display: "flex", gap: "16px", marginBottom: "16px", flexWrap: "wrap", alignItems: "stretch" }}>
+        <div style={{ flex: "2 1 400px", minWidth: 0 }}>
+          {weather ? <WeatherBar weather={weather} advisory={advisory} /> : <div className="weather-advisory" style={{ padding: "1.5rem" }}>A obter clima...</div>}
+        </div>
+        <div style={{ flex: "1 1 250px", minWidth: 0 }}>
+          <CalendarMock />
+        </div>
+      </div>
 
       {advisory?.wardrobeAlert && (
         <div className="weather-alert" style={{ marginBottom: "16px" }}>
