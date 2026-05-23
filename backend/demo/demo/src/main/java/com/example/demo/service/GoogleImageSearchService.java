@@ -17,7 +17,7 @@ public class GoogleImageSearchService {
 
     private static final String SEARCH_URL = "https://serpapi.com/search.json?engine=google_images&q=%s&api_key=%s";
 
-    @Value("${serpapi.key}")
+    @Value("${serpapi.key:}")
     private String apiKey;
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
