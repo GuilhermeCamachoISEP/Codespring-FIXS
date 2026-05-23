@@ -32,6 +32,12 @@ public class OnboardingController {
         return ResponseEntity.ok(onboardingService.saveStyles(extractUserId(authHeader), req));
     }
 
+    @GetMapping("/styles")
+    public ResponseEntity<UserPreferences> getStyles(
+            @RequestHeader("Authorization") String authHeader) {
+        return ResponseEntity.ok(onboardingService.getStyles(extractUserId(authHeader)));
+    }
+
     @PostMapping("/swipe")
     public ResponseEntity<SwipeResult> swipe(
             @RequestHeader("Authorization") String authHeader,
