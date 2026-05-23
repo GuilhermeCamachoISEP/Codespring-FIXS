@@ -1,9 +1,14 @@
 package com.example.demo.controller;
 
+import com.example.demo.domain.WardrobeItem;
 import com.example.demo.dto.OutfitSuggestion;
+import com.example.demo.dto.OutfitsResponse;
+import com.example.demo.dto.WeatherAdvisory;
 import com.example.demo.dto.WeatherData;
+import com.example.demo.repository.WardrobeItemRepository;
 import com.example.demo.service.JwtService;
 import com.example.demo.service.OutfitService;
+import com.example.demo.service.WeatherAdvisoryService;
 import com.example.demo.service.WeatherService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,18 +23,27 @@ public class OutfitController {
     private final OutfitService outfitService;
     private final JwtService jwtService;
     private final WeatherService weatherService;
+    private final WeatherAdvisoryService advisoryService;
+    private final WardrobeItemRepository wardrobeItemRepository;
 
-    public OutfitController(OutfitService outfitService, JwtService jwtService, WeatherService weatherService) {
+    public OutfitController(OutfitService outfitService,
+                            JwtService jwtService,
+                            WeatherService weatherService,
+                            WeatherAdvisoryService advisoryService,
+                            WardrobeItemRepository wardrobeItemRepository) {
         this.outfitService = outfitService;
         this.jwtService = jwtService;
         this.weatherService = weatherService;
+        this.advisoryService = advisoryService;
+        this.wardrobeItemRepository = wardrobeItemRepository;
     }
 
     @GetMapping
-    public ResponseEntity<List<OutfitSuggestion>> getOutfits(
+    public ResponseEntity<OutfitsResponse> getOutfits(
             @RequestHeader("Authorization") String authHeader,
             @RequestParam(required = false) Double lat,
             @RequestParam(required = false) Double lon) {
+
         Long userId = jwtService.extractUserId(authHeader.replace("Bearer ", ""));
 
         WeatherData weather = null;
@@ -37,10 +51,22 @@ public class OutfitController {
             try {
                 weather = weatherService.getWeather(lat, lon);
             } catch (Exception e) {
-                System.err.println("Weather fetch failed, generating outfits without context: " + e.getMessage());
+                System.err.println("Weather fetch failed, proceeding without context: " + e.getMessage());
             }
         }
 
-        return ResponseEntity.ok(outfitService.generateOutfits(userId, weather));
+        List<OutfitSuggestion> outfits = outfitService.generateOutfits(userId, weather);
+
+        WeatherAdvisory advisory = null;
+        if (weather != null) {
+            try {
+                List<WardrobeItem> wardrobe = wardrobeItemRepository.findByUserIdOrderByCreatedAtDesc(userId);
+                advisory = advisoryService.generateAdvisory(weather, wardrobe);
+            } catch (Exception e) {
+                System.err.println("Advisory generation failed: " + e.getMessage());
+            }
+        }
+
+        return ResponseEntity.ok(new OutfitsResponse(outfits, weather, advisory));
     }
 }

@@ -142,7 +142,7 @@ public class ClaudeService {
 
             var generationConfig = objectMapper.createObjectNode()
                     .put("temperature", 0.4)
-                    .put("maxOutputTokens", 1024)
+                    .put("maxOutputTokens", 2048)
                     .put("responseMimeType", "application/json");
 
             var requestBody = objectMapper.createObjectNode();
@@ -168,6 +168,49 @@ public class ClaudeService {
 
         } catch (Exception e) {
             System.err.println("Gemini outfit generation failed: " + e.getMessage());
+            return "[]";
+        }
+    }
+
+    public String generateJson(String prompt) {
+        try {
+            if (!isConfigured()) return "[]";
+
+            var textContent = objectMapper.createObjectNode().put("text", prompt);
+            var partsArray = objectMapper.createArrayNode();
+            partsArray.add(textContent);
+            var content = objectMapper.createObjectNode().put("role", "user");
+            content.set("parts", partsArray);
+            var contentsArray = objectMapper.createArrayNode();
+            contentsArray.add(content);
+
+            var generationConfig = objectMapper.createObjectNode()
+                    .put("temperature", 0.3)
+                    .put("maxOutputTokens", 512)
+                    .put("responseMimeType", "application/json");
+
+            var requestBody = objectMapper.createObjectNode();
+            requestBody.set("contents", contentsArray);
+            requestBody.set("generationConfig", generationConfig);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(geminiUrl()))
+                    .header("content-type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() != 200) {
+                System.err.println("Gemini generateJson error " + response.statusCode() + ": " + response.body());
+                return "[]";
+            }
+
+            String text = extractGeminiText(response.body());
+            return text.replaceAll("```json\\s*", "").replaceAll("```\\s*", "").trim();
+
+        } catch (Exception e) {
+            System.err.println("Gemini generateJson failed: " + e.getMessage());
             return "[]";
         }
     }

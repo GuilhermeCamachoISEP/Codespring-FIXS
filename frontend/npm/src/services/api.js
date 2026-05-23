@@ -108,7 +108,7 @@ export async function getOutfits(lat, lon) {
     const params = lat != null && lon != null ? `?lat=${lat}&lon=${lon}` : ""
     const res = await fetch(`${API_URL}/outfits${params}`, { headers: authHeaders() })
     if (!res.ok) throw new Error(await res.text())
-    return res.json()
+    return res.json() // returns { outfits, weather, advisory }
 }
 
 export async function getWeather(lat, lon) {

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\renat\\\\IdeaProjects\\\\Codespring-FIXS\" -Force)",
+      "Bash(Select-Object Name, FullName, PSIsContainer)",
+      "Bash(xargs wc -l)",
+      "Bash(mvn compile *)",
+      "Bash(npm run *)"
+    ]
+  }
+}

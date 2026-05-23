@@ -385,6 +385,43 @@ a { color: inherit; }
     border-radius: 4px;
 }
 
+.dash-card-weather { cursor: pointer; }
+
+.dash-weather-icon { font-size: 2.25rem; line-height: 1; flex-shrink: 0; }
+
+.dash-weather-temp {
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.dash-weather-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    border: 1px solid;
+}
+
+.dash-weather-city { font-size: 0.75rem; color: var(--muted); margin-top: 0.15rem; }
+
+.dash-weather-retry {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+    transition: color 0.2s, border-color 0.2s;
+}
+.dash-weather-retry:hover { color: var(--text); border-color: #444; }
+
 /* Wardrobe */
 .wardrobe-container {
     min-height: 100vh;
@@ -772,3 +809,76 @@ a { color: inherit; }
 .weather-badge-mild      { color: #86efac; border-color: #16a34a; background: rgba(22,163,74,0.12); }
 .weather-badge-warm      { color: #fcd34d; border-color: #b45309; background: rgba(180,83,9,0.12); }
 .weather-badge-hot       { color: #fca5a5; border-color: #dc2626; background: rgba(220,38,38,0.12); }
+
+/* Weather Advisory Panel */
+.weather-advisory {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.weather-advisory-header {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1.25rem 1.5rem;
+}
+
+.weather-tips {
+    padding: 0.85rem 1.5rem 1rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.weather-tips-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.15rem;
+}
+
+.weather-tip {
+    font-size: 0.875rem;
+    color: var(--text);
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    line-height: 1.4;
+}
+
+.weather-tip::before {
+    content: "·";
+    color: var(--muted);
+    font-size: 1.1rem;
+    line-height: 1.2;
+    flex-shrink: 0;
+}
+
+.weather-alert {
+    margin: 0 1rem 1rem;
+    padding: 0.6rem 0.9rem;
+    background: rgba(251, 191, 36, 0.07);
+    border: 1px solid rgba(251, 191, 36, 0.22);
+    border-radius: 8px;
+    font-size: 0.82rem;
+    color: #fbbf24;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Weather note on outfit cards */
+.outfit-weather-note {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    color: #67e8f9;
+    margin-top: 0.3rem;
+    opacity: 0.9;
+}

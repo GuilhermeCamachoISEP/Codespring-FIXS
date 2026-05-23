@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { getOutfits, getWeather } from "../services/api"
+import { getOutfits } from "../services/api"
 
 const TEMP_LABELS = {
     "very-cold": "Muito frio",
@@ -14,6 +14,7 @@ const TEMP_LABELS = {
 export default function OutfitsPage() {
     const [outfits, setOutfits] = useState([])
     const [weather, setWeather] = useState(null)
+    const [advisory, setAdvisory] = useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState("")
     const coords = useRef(null)
@@ -21,41 +22,27 @@ export default function OutfitsPage() {
 
     useEffect(() => {
         if (!navigator.geolocation) {
-            loadOutfitsOnly()
+            loadData(null, null)
             return
         }
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 coords.current = { lat: pos.coords.latitude, lon: pos.coords.longitude }
-                loadAll(coords.current.lat, coords.current.lon)
+                loadData(coords.current.lat, coords.current.lon)
             },
-            () => loadOutfitsOnly(),
+            () => loadData(null, null),
             { timeout: 6000 }
         )
     }, [])
 
-    async function loadAll(lat, lon) {
+    async function loadData(lat, lon) {
         setLoading(true)
         setError("")
         try {
-            const [weatherData, outfitsData] = await Promise.all([
-                getWeather(lat, lon).catch(() => null),
-                getOutfits(lat, lon),
-            ])
-            setWeather(weatherData)
-            setOutfits(outfitsData)
-        } catch (err) {
-            setError("Erro ao gerar outfits: " + err.message)
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    async function loadOutfitsOnly() {
-        setLoading(true)
-        setError("")
-        try {
-            setOutfits(await getOutfits())
+            const data = await getOutfits(lat, lon)
+            setOutfits(data.outfits ?? [])
+            setWeather(data.weather ?? null)
+            setAdvisory(data.advisory ?? null)
         } catch (err) {
             setError("Erro ao gerar outfits: " + err.message)
         } finally {
@@ -64,11 +51,7 @@ export default function OutfitsPage() {
     }
 
     function reload() {
-        if (coords.current) {
-            loadAll(coords.current.lat, coords.current.lon)
-        } else {
-            loadOutfitsOnly()
-        }
+        loadData(coords.current?.lat ?? null, coords.current?.lon ?? null)
     }
 
     return (
@@ -81,7 +64,7 @@ export default function OutfitsPage() {
                 </button>
             </div>
 
-            {weather && <WeatherCard weather={weather} />}
+            {weather && <WeatherAdvisoryPanel weather={weather} advisory={advisory} />}
 
             {loading && (
                 <div className="loading-state">
@@ -120,46 +103,76 @@ export default function OutfitsPage() {
 
             <div className="outfits-grid">
                 {outfits.map((outfit, i) => (
-                    <div key={i} className="outfit-card">
-                        <div className="outfit-header">
-                            <h3 className="outfit-name">{outfit.name}</h3>
-                            <p className="outfit-desc">{outfit.description}</p>
-                        </div>
-                        <div className="outfit-items">
-                            {outfit.items.map(item => (
-                                <div key={item.id} className="outfit-item">
-                                    <img src={`http://localhost:8080${item.imageUrl}`} alt={item.subcategory} />
-                                    <div className="outfit-item-label">
-                                        <span>{item.color} {item.subcategory}</span>
-                                        <span className="tag tag-category">{item.category}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                    <OutfitCard key={i} outfit={outfit} />
                 ))}
             </div>
         </div>
     )
 }
 
-function WeatherCard({ weather }) {
+function WeatherAdvisoryPanel({ weather, advisory }) {
     return (
-        <div className="weather-card">
-            <div className="weather-icon-large">{weather.icon}</div>
-            <div className="weather-info">
-                <div className="weather-temp">{Math.round(weather.temperature)}°C</div>
-                <div className="weather-meta">
-                    <span className="weather-desc">{weather.description}</span>
-                    {weather.windSpeed > 20 && (
-                        <span className="weather-wind"> · {Math.round(weather.windSpeed)} km/h</span>
-                    )}
+        <div className="weather-advisory">
+            <div className="weather-advisory-header">
+                <div className="weather-icon-large">{weather.icon}</div>
+                <div className="weather-info">
+                    <div className="weather-temp">{Math.round(weather.temperature)}°C</div>
+                    <div className="weather-meta">
+                        <span className="weather-desc">{weather.description}</span>
+                        {weather.windSpeed > 20 && (
+                            <span className="weather-wind"> · {Math.round(weather.windSpeed)} km/h</span>
+                        )}
+                    </div>
+                    <div className="weather-city">📍 {weather.city}</div>
                 </div>
-                <div className="weather-city">📍 {weather.city}</div>
+                <span className={`weather-badge weather-badge-${weather.tempCategory}`}>
+                    {TEMP_LABELS[weather.tempCategory] ?? "Variável"}
+                </span>
             </div>
-            <span className={`weather-badge weather-badge-${weather.tempCategory}`}>
-                {TEMP_LABELS[weather.tempCategory] ?? "Variável"}
-            </span>
+
+            {advisory?.tips?.length > 0 && (
+                <div className="weather-tips">
+                    <div className="weather-tips-label">Dicas para hoje</div>
+                    {advisory.tips.map((tip, i) => (
+                        <div key={i} className="weather-tip">{tip}</div>
+                    ))}
+                </div>
+            )}
+
+            {advisory?.wardrobeAlert && (
+                <div className="weather-alert">
+                    <span>⚠️</span>
+                    <span>{advisory.wardrobeAlert}</span>
+                </div>
+            )}
+        </div>
+    )
+}
+
+function OutfitCard({ outfit }) {
+    return (
+        <div className="outfit-card">
+            <div className="outfit-header">
+                <h3 className="outfit-name">{outfit.name}</h3>
+                <p className="outfit-desc">{outfit.description}</p>
+                {outfit.weatherNote && (
+                    <div className="outfit-weather-note">
+                        <span>🌡️</span>
+                        <span>{outfit.weatherNote}</span>
+                    </div>
+                )}
+            </div>
+            <div className="outfit-items">
+                {outfit.items.map(item => (
+                    <div key={item.id} className="outfit-item">
+                        <img src={`http://localhost:8080${item.imageUrl}`} alt={item.subcategory} />
+                        <div className="outfit-item-label">
+                            <span>{item.color} {item.subcategory}</span>
+                            <span className="tag tag-category">{item.category}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
     )
 }

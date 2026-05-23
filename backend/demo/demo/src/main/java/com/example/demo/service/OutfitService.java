@@ -85,13 +85,15 @@ public class OutfitService {
                     - Respeita as preferências de estilo do utilizador
                     - Usa APENAS os IDs das peças da lista acima
                     - Os nomes e descrições devem ser em português de Portugal
+                    - O campo "weatherNote" deve ser uma nota curta (máx. 6 palavras) sobre como o outfit se adequa ao clima atual (ex: "Perfeito para este frio", "Ideal para dia de chuva")
 
                     Responde APENAS com um JSON array válido, sem markdown:
                     [
                       {
                         "name": "Nome do outfit",
                         "description": "Descrição curta do look",
-                        "itemIds": [1, 4, 7]
+                        "itemIds": [1, 4, 7],
+                        "weatherNote": "Perfeito para este frio"
                       }
                     ]
                     """.formatted(weatherContext, styleWeights, objectMapper.writeValueAsString(itemNodes));
@@ -144,7 +146,11 @@ public class OutfitService {
                 }
 
                 if (!outfitItems.isEmpty()) {
-                    result.add(new OutfitSuggestion(name, description, outfitItems));
+                    String weatherNote = outfit.path("weatherNote").asText(null);
+                    if (weatherNote != null && (weatherNote.isBlank() || "null".equals(weatherNote))) {
+                        weatherNote = null;
+                    }
+                    result.add(new OutfitSuggestion(name, description, outfitItems, weatherNote));
                 }
             }
             return result;
