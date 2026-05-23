@@ -124,15 +124,15 @@ public class OutfitService {
                     Peças disponíveis no armário:
                     %s
 
-                    Cria entre 3 e 5 outfits completos. Regras:
-                    - Cada outfit deve ter pelo menos uma parte de cima (tops ou jackets) e uma de baixo (bottoms) ou sapatos (shoes)
+                    Cria exatamente 1 outfit completo. Regras:
+                    - O outfit deve ter pelo menos uma parte de cima (tops ou jackets) e uma de baixo (bottoms) ou sapatos (shoes)
                     - As peças devem combinar em cor e estilo
                     - Respeita as preferências de estilo do utilizador
                     - Usa APENAS os IDs das peças da lista acima
-                    - Os nomes e descrições devem ser em português de Portugal
+                    - O nome e descrição devem ser em português de Portugal
                     - O campo "weatherNote" deve ser uma nota curta (máx. 6 palavras) sobre como o outfit se adequa ao clima atual (ex: "Perfeito para este frio", "Ideal para dia de chuva")
 
-                    Responde APENAS com um JSON array válido, sem markdown:
+                    Responde APENAS com um JSON array com 1 elemento, sem markdown:
                     [
                       {
                         "name": "Nome do outfit",
@@ -221,7 +221,7 @@ public class OutfitService {
         if (bottoms.isEmpty() && shoes.isEmpty()) return List.of();
 
         List<OutfitSuggestion> outfits = new ArrayList<>();
-        int target = Math.min(5, Math.max(3, sorted.size()));
+        int target = 1;
         for (int i = 0; i < target; i++) {
             List<WardrobeItem> outfitItems = new ArrayList<>();
             WardrobeItem top = pick(tops.isEmpty() ? jackets : tops, i);
@@ -247,7 +247,7 @@ public class OutfitService {
         }
         return outfits.stream()
                 .filter(outfit -> hasUsefulCombination(outfit.getItems()))
-                .limit(5)
+                .limit(1)
                 .toList();
     }
 
