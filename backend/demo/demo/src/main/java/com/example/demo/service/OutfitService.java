@@ -4,6 +4,7 @@ import com.example.demo.domain.UserPreferences;
 import com.example.demo.domain.WardrobeItem;
 import com.example.demo.dto.OutfitSuggestion;
 import com.example.demo.dto.WeatherData;
+import com.example.demo.domain.OutfitHistory;
 import com.example.demo.repository.UserPreferencesRepository;
 import com.example.demo.repository.WardrobeItemRepository;
 import com.example.demo.repository.OutfitReservationRepository;
@@ -28,21 +29,29 @@ public class OutfitService {
     private final OutfitReservationRepository reservationRepository;
     private final ClaudeService claudeService;
     private final ObjectMapper objectMapper;
+    private final OutfitHistoryService historyService;
 
     public OutfitService(WardrobeItemRepository wardrobeItemRepository,
                          UserPreferencesRepository preferencesRepository,
                          OutfitReservationRepository reservationRepository,
                          ClaudeService claudeService,
-                         ObjectMapper objectMapper) {
+                         ObjectMapper objectMapper,
+                         OutfitHistoryService historyService) {
         this.wardrobeItemRepository = wardrobeItemRepository;
         this.preferencesRepository = preferencesRepository;
         this.reservationRepository = reservationRepository;
         this.claudeService = claudeService;
         this.objectMapper = objectMapper;
+        this.historyService = historyService;
     }
 
     public List<OutfitSuggestion> generateOutfits(Long userId, WeatherData weather) {
+        System.out.println("[DEBUG-OUTFIT] generateOutfits called for userId=" + userId);
         List<WardrobeItem> items = wardrobeItemRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        System.out.println("[DEBUG-OUTFIT] Total items for user: " + items.size());
+        for(WardrobeItem item : items) {
+            System.out.println("[DEBUG-OUTFIT] Item ID=" + item.getId() + " | Category='" + item.getCategory() + "' | SubCat='" + item.getSubcategory() + "'");
+        }
         if (items.isEmpty()) return List.of();
 
         List<Long> reservedItemIds = reservationRepository.findByUserIdAndEventDate(userId, LocalDate.now())
@@ -51,20 +60,33 @@ public class OutfitService {
         List<WardrobeItem> availableItems = items.stream()
                 .filter(item -> !reservedItemIds.contains(item.getId()))
                 .toList();
+        System.out.println("[DEBUG-OUTFIT] Available items after removing " + reservedItemIds.size() + " reserved: " + availableItems.size());
         
-        if (availableItems.isEmpty()) return List.of();
+        if (availableItems.isEmpty()) {
+            System.out.println("[DEBUG-OUTFIT] No available items, returning empty.");
+            return List.of();
+        }
 
         String styleWeights = preferencesRepository.findByUserId(userId)
                 .map(UserPreferences::getStyleWeights)
                 .orElse("{}");
 
-        String prompt = buildPrompt(availableItems, styleWeights, weather, null);
+        List<OutfitHistory> recentHistory = historyService.getLast7Outfits(userId);
+        List<OutfitHistory> likedHistory = historyService.getLikedOutfits(userId);
+
+        String prompt = buildPrompt(availableItems, styleWeights, weather, null, recentHistory, likedHistory);
+        System.out.println("[DEBUG-OUTFIT] Calling Claude/Groq API...");
         String json = claudeService.generateOutfitsRaw(prompt);
+        System.out.println("[DEBUG-OUTFIT] AI Raw JSON: " + json);
         List<OutfitSuggestion> aiOutfits = parseOutfits(json, availableItems);
+        System.out.println("[DEBUG-OUTFIT] Parsed AI outfits size: " + aiOutfits.size());
         if (!aiOutfits.isEmpty()) {
             return aiOutfits;
         }
-        return generateFallbackOutfits(availableItems, styleWeights);
+        System.out.println("[DEBUG-OUTFIT] Calling fallback generator...");
+        List<OutfitSuggestion> fallback = generateFallbackOutfits(availableItems, styleWeights);
+        System.out.println("[DEBUG-OUTFIT] Fallback outfits size: " + fallback.size());
+        return fallback;
     }
 
     public List<OutfitSuggestion> generateOutfitsForEvent(Long userId, String eventName, WeatherData weather, LocalDate eventDate) {
@@ -87,7 +109,10 @@ public class OutfitService {
                 .map(UserPreferences::getStyleWeights)
                 .orElse("{}");
 
-        String prompt = buildPrompt(availableItems, styleWeights, weather, eventName);
+        List<OutfitHistory> recentHistory = historyService.getLast7Outfits(userId);
+        List<OutfitHistory> likedHistory = historyService.getLikedOutfits(userId);
+
+        String prompt = buildPrompt(availableItems, styleWeights, weather, eventName, recentHistory, likedHistory);
         String json = claudeService.generateOutfitsRaw(prompt);
         List<OutfitSuggestion> aiOutfits = parseOutfits(json, availableItems);
         if (!aiOutfits.isEmpty()) {
@@ -96,7 +121,7 @@ public class OutfitService {
         return generateFallbackOutfits(availableItems, styleWeights);
     }
 
-    private String buildPrompt(List<WardrobeItem> items, String styleWeights, WeatherData weather, String eventName) {
+    private String buildPrompt(List<WardrobeItem> items, String styleWeights, WeatherData weather, String eventName, List<OutfitHistory> recentHistory, List<OutfitHistory> likedHistory) {
         try {
             var itemNodes = objectMapper.createArrayNode();
             for (WardrobeItem item : items) {
@@ -113,6 +138,32 @@ public class OutfitService {
             }
 
             String weatherContext = buildWeatherContext(weather);
+            String recentOutfitsStr = "[]";
+            if (!recentHistory.isEmpty()) {
+                var recentArray = objectMapper.createArrayNode();
+                for (OutfitHistory h : recentHistory) {
+                    var historyIds = objectMapper.createArrayNode();
+                    for (JsonNode itemNode : objectMapper.readTree(h.getOutfitItems())) {
+                        historyIds.add(itemNode.path("id").asLong());
+                    }
+                    recentArray.add(historyIds);
+                }
+                recentOutfitsStr = objectMapper.writeValueAsString(recentArray);
+            }
+
+            String likedOutfitsStr = "[]";
+            if (!likedHistory.isEmpty()) {
+                var likedArray = objectMapper.createArrayNode();
+                for (OutfitHistory h : likedHistory) {
+                    var historyIds = objectMapper.createArrayNode();
+                    for (JsonNode itemNode : objectMapper.readTree(h.getOutfitItems())) {
+                        historyIds.add(itemNode.path("id").asLong());
+                    }
+                    likedArray.add(historyIds);
+                }
+                likedOutfitsStr = objectMapper.writeValueAsString(likedArray);
+            }
+
             String eventContext = eventName != null ? "\nCRIAR OUTFITS ESPECÍFICAMENTE PARA O EVENTO: " + eventName + "\nA temática do evento é a principal prioridade na escolha das peças." : "";
 
             return """
@@ -123,6 +174,14 @@ public class OutfitService {
 
                     Peças disponíveis no armário:
                     %s
+                    
+                    RECENT OUTFITS WORN (try to avoid exact repetition if possible, but you MUST generate an outfit even if you have to repeat):
+                    %s
+                    
+                    LIKED OUTFITS (user loves these — use as style reference):
+                    %s
+                    
+                    If wardrobe is too limited to avoid repetition, just repeat a recent outfit but mention in the description: 'You've been wearing similar combinations — time to add more variety!'.
 
                     Cria exatamente 1 outfit completo. Regras:
                     - O outfit deve ter pelo menos uma parte de cima (tops ou jackets) e uma de baixo (bottoms) ou sapatos (shoes)
@@ -141,7 +200,7 @@ public class OutfitService {
                         "weatherNote": "Perfeito para este frio"
                       }
                     ]
-                    """.formatted(eventContext, weatherContext, styleWeights, objectMapper.writeValueAsString(itemNodes));
+                    """.formatted(eventContext, weatherContext, styleWeights, objectMapper.writeValueAsString(itemNodes), recentOutfitsStr, likedOutfitsStr);
         } catch (Exception e) {
             throw new RuntimeException("Failed to build outfit prompt", e);
         }
@@ -217,8 +276,16 @@ public class OutfitService {
         List<WardrobeItem> shoes = byCategory(sorted, "shoes");
         List<WardrobeItem> accessories = byCategory(sorted, "accessories");
 
-        if (tops.isEmpty() && jackets.isEmpty()) return List.of();
-        if (bottoms.isEmpty() && shoes.isEmpty()) return List.of();
+        System.out.println("[DEBUG-FALLBACK] Categorized -> Tops:" + tops.size() + " Jackets:" + jackets.size() + " Bottoms:" + bottoms.size() + " Shoes:" + shoes.size());
+
+        if (tops.isEmpty() && jackets.isEmpty()) {
+            System.out.println("[DEBUG-FALLBACK] Missing upper parts. Returning empty.");
+            return List.of();
+        }
+        if (bottoms.isEmpty() && shoes.isEmpty()) {
+            System.out.println("[DEBUG-FALLBACK] Missing lower parts. Returning empty.");
+            return List.of();
+        }
 
         List<OutfitSuggestion> outfits = new ArrayList<>();
         int target = 1;

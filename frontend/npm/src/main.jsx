@@ -11,7 +11,7 @@ document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
 if (savedDark === null) localStorage.setItem('darkMode', 'true')
 
 // Substitui pela tua chave gerada na Google Cloud Console
-const GOOGLE_CLIENT_ID = "647442385117-jl1l4q65nt8tn7jmh6n0h9p659ul7evd.apps.googleusercontent.com"
+const GOOGLE_CLIENT_ID = "647442385117-jl1l4q65nt8tn7jmh6n0h9p659ul7evd.apps.googleusercontent.comw"
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

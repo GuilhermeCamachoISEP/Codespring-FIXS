@@ -48,6 +48,7 @@ public class OutfitController {
 
         Long userId = jwtService.extractUserId(authHeader.replace("Bearer ", ""));
 
+        System.out.println("[DEBUG-CTRL] getOutfits called for user " + userId + " at lat=" + lat + ", lon=" + lon);
         WeatherData weather = null;
         if (lat != null && lon != null) {
             try {
@@ -57,19 +58,25 @@ public class OutfitController {
             }
         }
 
-        List<OutfitSuggestion> outfits = outfitService.generateOutfits(userId, weather);
-
-        WeatherAdvisory advisory = null;
-        if (weather != null) {
-            try {
-                List<WardrobeItem> wardrobe = wardrobeItemRepository.findByUserIdOrderByCreatedAtDesc(userId);
-                advisory = advisoryService.generateAdvisory(weather, wardrobe);
-            } catch (Exception e) {
-                System.err.println("Advisory generation failed: " + e.getMessage());
+        try {
+            List<OutfitSuggestion> outfits = outfitService.generateOutfits(userId, weather);
+            System.out.println("[DEBUG-CTRL] outfitService returned " + outfits.size() + " outfits");
+            
+            WeatherAdvisory advisory = null;
+            if (weather != null) {
+                try {
+                    List<WardrobeItem> wardrobe = wardrobeItemRepository.findByUserIdOrderByCreatedAtDesc(userId);
+                    advisory = advisoryService.generateAdvisory(weather, wardrobe);
+                } catch (Exception e) {
+                    System.err.println("Advisory generation failed: " + e.getMessage());
+                }
             }
+            return ResponseEntity.ok(new OutfitsResponse(outfits, weather, advisory));
+        } catch (Exception e) {
+            System.err.println("[DEBUG-CTRL] Exception generating outfits: ");
+            e.printStackTrace();
+            throw e;
         }
-
-        return ResponseEntity.ok(new OutfitsResponse(outfits, weather, advisory));
     }
 
     @GetMapping("/event")

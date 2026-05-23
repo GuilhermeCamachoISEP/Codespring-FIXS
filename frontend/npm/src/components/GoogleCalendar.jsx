@@ -12,11 +12,12 @@ export default function GoogleCalendar() {
   const login = useGoogleLogin({
     scope: "https://www.googleapis.com/auth/calendar.readonly",
     onSuccess: (tokenResponse) => {
+      console.log("[DEBUG-GOOGLE] Login Success!", tokenResponse);
       setAccessToken(tokenResponse.access_token)
       localStorage.setItem("google_access_token", tokenResponse.access_token)
     },
     onError: (err) => {
-      console.error("Login Failed", err)
+      console.error("[DEBUG-GOOGLE] Login Failed", err)
       setError("Falha na autenticação Google")
     }
   })
@@ -34,6 +35,7 @@ export default function GoogleCalendar() {
       const timeMin = new Date().toISOString()
       const timeMax = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       
+      console.log("[DEBUG-GOOGLE] Fetching events with timeMin=", timeMin, "timeMax=", timeMax);
       const response = await fetch(
         `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime`,
         {
@@ -43,7 +45,10 @@ export default function GoogleCalendar() {
         }
       )
       
+      console.log("[DEBUG-GOOGLE] Response status:", response.status);
       if (!response.ok) {
+        const errText = await response.text();
+        console.error("[DEBUG-GOOGLE] Error response from Google:", errText);
         if (response.status === 401) {
           // Token expired
           setAccessToken(null)
@@ -54,6 +59,8 @@ export default function GoogleCalendar() {
       }
       
       const data = await response.json()
+      console.log("[DEBUG-GOOGLE] Raw events payload from Google:", JSON.stringify(data, null, 2));
+      
       // Map Google events to our format
       const formattedEvents = (data.items || []).map(item => {
         let dateObj
@@ -92,9 +99,22 @@ export default function GoogleCalendar() {
 
   return (
     <div className="weather-advisory" style={{ display: "flex", flexDirection: "column", height: "100%", padding: "1.2rem 1.5rem", margin: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
-        <span style={{ fontSize: "1.2rem" }}>📅</span>
-        <h3 style={{ margin: 0, fontSize: "1rem" }}>Próximos 7 Dias</h3>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ fontSize: "1.2rem" }}>📅</span>
+            <h3 style={{ margin: 0, fontSize: "1rem" }}>Próximos 7 Dias</h3>
+        </div>
+        {accessToken && (
+            <button 
+                onClick={() => {
+                    setAccessToken(null);
+                    localStorage.removeItem("google_access_token");
+                }}
+                style={{ background: "transparent", border: "1px solid #ff4a4a", color: "#ff4a4a", padding: "0.2rem 0.5rem", borderRadius: "4px", cursor: "pointer", fontSize: "0.75rem" }}
+            >
+                Desconectar
+            </button>
+        )}
       </div>
       
       {!accessToken ? (

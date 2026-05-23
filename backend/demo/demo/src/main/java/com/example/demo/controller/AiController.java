@@ -23,7 +23,7 @@ public class AiController {
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> status() {
         return ResponseEntity.ok(Map.of(
-                "provider", "gemini",
+                "provider", "groq",
                 "configured", claudeService.isConfigured(),
                 "model", claudeService.getModel()
         ));
