@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { saveStyles } from "../services/api"
+import { saveStyles, getStyles } from "../services/api"
 import AppHeader from "../components/AppHeader"
 import { ArrowLeft } from "../components/Icons"
 
@@ -24,6 +24,25 @@ export default function SettingsStyles() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const navigate = useNavigate()
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await getStyles()
+        if (data && data.styleWeights) {
+          const weights = JSON.parse(data.styleWeights)
+          // Filtra para garantir que só carregamos IDs que existem na lista STYLES atual
+          const validIds = Object.keys(weights).filter(id => 
+            STYLES.some(s => s.id === id)
+          )
+          setSelected(new Set(validIds))
+        }
+      } catch (err) {
+        console.error("Failed to load styles:", err)
+      }
+    }
+    load()
+  }, [])
 
   function toggle(id) {
     setSelected(prev => {

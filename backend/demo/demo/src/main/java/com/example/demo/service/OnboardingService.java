@@ -47,6 +47,10 @@ public class OnboardingService {
         return preferencesRepository.save(prefs);
     }
 
+    public UserPreferences getStyles(Long userId) {
+        return preferencesRepository.findByUserId(userId).orElse(null);
+    }
+
     public SwipeResult saveSwipe(Long userId, SwipeRequest req) {
         SwipeResult result = SwipeResult.builder()
                 .userId(userId)

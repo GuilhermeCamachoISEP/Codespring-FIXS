@@ -41,6 +41,14 @@ export async function saveStyles(styles, gender, ageRange, budgetRange) {
     return res.json()
 }
 
+export async function getStyles() {
+    const res = await fetch(`${API_URL}/onboarding/styles`, {
+        headers: authHeaders()
+    })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+}
+
 export async function getOnboardingStatus() {
     const res = await fetch(`${API_URL}/onboarding/status`, {
         headers: authHeaders()
@@ -132,6 +140,23 @@ export async function sendChatMessage(message, history, lat, lon, mode = "conver
     return res.json()
 }
 
+export async function getOutfitsForEvent(eventName, date, lat, lon) {
+    let params = `?eventName=${encodeURIComponent(eventName)}&date=${date}`
+    if (lat != null && lon != null) params += `&lat=${lat}&lon=${lon}`
+    const res = await fetch(`${API_URL}/outfits/event${params}`, { headers: authHeaders() })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+}
+
+export async function reserveOutfit(eventName, eventDate, itemIds) {
+    const res = await fetch(`${API_URL}/outfits/reserve`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ eventName, eventDate, itemIds })
+    })
+    if (!res.ok) throw new Error(await res.text())
+}
+
 export async function saveOutfitHistory(outfitItems) {
     const res = await fetch(`${API_URL}/outfits/history`, {
         method: "POST",
@@ -158,23 +183,6 @@ export async function toggleOutfitLike(id) {
     const res = await fetch(`${API_URL}/outfits/history/${id}/like`, {
         method: "PATCH",
         headers: authHeaders()
-    })
-    if (!res.ok) throw new Error(await res.text())
-}
-
-export async function getOutfitsForEvent(eventName, date, lat, lon) {
-    let params = `?eventName=${encodeURIComponent(eventName)}&date=${date}`
-    if (lat != null && lon != null) params += `&lat=${lat}&lon=${lon}`
-    const res = await fetch(`${API_URL}/outfits/event${params}`, { headers: authHeaders() })
-    if (!res.ok) throw new Error(await res.text())
-    return res.json()
-}
-
-export async function reserveOutfit(eventName, eventDate, itemIds) {
-    const res = await fetch(`${API_URL}/outfits/reserve`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ eventName, eventDate, itemIds })
     })
     if (!res.ok) throw new Error(await res.text())
 }

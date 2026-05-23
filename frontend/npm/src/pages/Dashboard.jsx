@@ -80,7 +80,7 @@ export default function Dashboard() {
                         <div className="dash-card-icon">📷</div>
                         <div className="dash-card-body">
                             <h3>Adicionar roupa</h3>
-                            <p>Gemini AI classifica automaticamente</p>
+                            <p>Groq classifica automaticamente</p>
                         </div>
                         <span className="dash-arrow">→</span>
                     </div>
@@ -90,7 +90,7 @@ export default function Dashboard() {
                         <div className="dash-card-icon">✨</div>
                         <div className="dash-card-body">
                             <h3>Os meus outfits</h3>
-                            <p>Gemini AI combina as tuas peças</p>
+                            <p>Groq combina as tuas peças</p>
                         </div>
                         <span className="dash-arrow">→</span>
                     </div>
