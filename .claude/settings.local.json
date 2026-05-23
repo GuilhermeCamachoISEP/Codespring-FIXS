@@ -7,7 +7,11 @@
       "Bash(mvn compile *)",
       "Bash(npm run *)",
       "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\renat\\\\IdeaProjects\\\\Codespring-FIXS\\\\smart-ai-outfit-generator-ui\")",
-      "Bash(Write-Host \"Deleted\")"
+      "Bash(Write-Host \"Deleted\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=AIzaSyBs3MQXiQXBXfcWN6lZJeFgu1z4GNAKD-Y\" -H \"Content-Type: application/json\" -d '{\"contents\":[{\"parts\":[{\"text\":\"hi\"}]}]}')",
+      "Bash(netstat -ano)",
+      "Bash(awk '{print $NF}')",
+      "Bash(curl -s -w \"\\\\nHTTP:%{http_code}\" \"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=AIzaSyBs3MQXiQXBXfcWN6lZJeFgu1z4GNAKD-Y\" -H \"Content-Type: application/json\" -d '{\"contents\":[{\"parts\":[{\"text\":\"hi\"}]}]}')"
     ]
   }
 }
