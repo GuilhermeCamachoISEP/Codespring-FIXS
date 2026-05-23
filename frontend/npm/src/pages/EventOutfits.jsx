@@ -8,6 +8,7 @@ export default function EventOutfits() {
   const [searchParams] = useSearchParams()
   const eventName = searchParams.get("eventName") || "Evento Especial"
   const eventDate = searchParams.get("date") || new Date().toISOString().split("T")[0]
+  const displayDate = searchParams.get("displayDate") || eventDate
   
   const [outfits, setOutfits] = useState([])
   const [loading, setLoading] = useState(true)
@@ -72,7 +73,7 @@ export default function EventOutfits() {
       </div>
 
       <div style={{ marginBottom: "2rem", color: "#aaa" }}>
-        📅 {eventDate} — Sugestões baseadas no teu armário para a temática deste evento.
+        📅 {displayDate} — Sugestões baseadas no teu armário para a temática deste evento.
       </div>
 
       {loading && (

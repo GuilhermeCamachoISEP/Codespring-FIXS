@@ -3,7 +3,7 @@ import { getOutfits } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import AppHeader from "../components/AppHeader"
 import { RefreshCw } from "../components/Icons"
-import CalendarMock from "../components/CalendarMock"
+import GoogleCalendar from "../components/GoogleCalendar"
 
 const TEMP_LABELS = {
   "very-cold": "Muito frio",
@@ -122,7 +122,7 @@ export default function OutfitsPage() {
           {weather ? <WeatherBar weather={weather} advisory={advisory} /> : <div className="weather-advisory" style={{ padding: "1.5rem" }}>A obter clima...</div>}
         </div>
         <div style={{ flex: "1 1 250px", minWidth: 0 }}>
-          <CalendarMock />
+          <GoogleCalendar />
         </div>
       </div>
 
