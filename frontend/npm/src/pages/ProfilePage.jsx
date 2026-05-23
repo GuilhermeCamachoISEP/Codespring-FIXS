@@ -75,6 +75,12 @@ export default function ProfilePage() {
           </button>
         </div>
         <div className="setting-row">
+          <span className="setting-label">Inspiração</span>
+          <button className="btn btn-secondary" onClick={() => navigate("/inspiration")}>
+            Ver looks
+          </button>
+        </div>
+        <div className="setting-row">
           <span className="setting-label">Terminar sessão</span>
           <button
             className="btn btn-secondary"

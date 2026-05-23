@@ -14,6 +14,7 @@ import Landing from "./pages/Landing"
 import SettingsStyles from "./pages/SettingsStyles"
 import EventOutfits from "./pages/EventOutfits"
 import ProfilePage from "./pages/ProfilePage"
+import InspirationPage from "./pages/InspirationPage"
 
 function ProtectedRoute({ children }) {
     const { user } = useAuth()
@@ -24,17 +25,46 @@ function ProtectedRoute({ children }) {
 function OnboardingGate({ children }) {
     const location = useLocation()
     const [status, setStatus] = useState(null)
-    const [error, setError] = useState("")
+    const [error, setError]   = useState("")
 
     useEffect(() => {
         let active = true
+        setError("")
         getOnboardingStatus()
             .then(data => { if (active) setStatus(data) })
-            .catch(err => { if (active) setError(err.message) })
+            .catch(err  => { if (active) setError(err.message) })
         return () => { active = false }
     }, [location.pathname])
 
-    if (error) return <Navigate to="/login" replace />
+    if (error) {
+        // Only send to login for real auth failures (expired / invalid token)
+        const isAuthError = error.includes("401")
+            || error.toLowerCase().includes("unauthorized")
+            || error.toLowerCase().includes("token")
+        if (isAuthError) return <Navigate to="/login" replace />
+
+        // If we already have a status from a previous fetch, keep rendering
+        if (status) {
+            const isOnboarding = location.pathname.startsWith("/onboarding")
+            if (!status.complete && !isOnboarding) return <Navigate to={status.nextStep || "/onboarding/styles"} replace />
+            if (status.complete && isOnboarding) return <Navigate to="/outfits" replace />
+            return children
+        }
+
+        // No status yet and backend unreachable — show retry instead of looping
+        return (
+            <div className="loading-state" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px" }}>
+                <div style={{ fontSize: "2rem" }}>⚠️</div>
+                <p>Não foi possível ligar ao servidor.</p>
+                <p style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
+                    Confirma que o backend está a correr em localhost:8080
+                </p>
+                <button className="btn btn-primary" onClick={() => window.location.reload()}>
+                    Tentar novamente
+                </button>
+            </div>
+        )
+    }
 
     if (!status) {
         return (
@@ -67,6 +97,7 @@ function AppRoutes() {
             <Route path="/events/outfits" element={<ProtectedRoute><OnboardingGate><EventOutfits /></OnboardingGate></ProtectedRoute>} />
             <Route path="/settings/styles" element={<Navigate to="/preferences" replace />} />
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+            <Route path="/inspiration" element={<ProtectedRoute><OnboardingGate><InspirationPage /></OnboardingGate></ProtectedRoute>} />
             <Route path="/dashboard" element={<Navigate to={user ? "/outfits" : "/login"} replace />} />
             <Route path="/" element={<Navigate to={user ? "/outfits" : "/login"} replace />} />
             <Route path="*" element={<Navigate to={user ? "/outfits" : "/login"} replace />} />

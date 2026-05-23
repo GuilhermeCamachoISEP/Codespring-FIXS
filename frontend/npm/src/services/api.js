@@ -148,3 +148,45 @@ export async function reserveOutfit(eventName, eventDate, itemIds) {
     })
     if (!res.ok) throw new Error(await res.text())
 }
+
+// ─── Inspiration (Unsplash) ───────────────────────────────────────────────────
+
+export async function getInspiration() {
+    const res = await fetch(`${API_URL}/inspiration/photos`, { headers: authHeaders() })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json() // { sections: [...], configured: bool }
+}
+
+// ─── Pinterest ────────────────────────────────────────────────────────────────
+
+export async function getPinterestStatus() {
+    const res = await fetch(`${API_URL}/pinterest/status`, { headers: authHeaders() })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json() // { connected: bool, configured: bool }
+}
+
+export async function getPinterestAuthUrl() {
+    const res = await fetch(`${API_URL}/pinterest/auth-url`, { headers: authHeaders() })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json() // { url: string }
+}
+
+export async function getPinterestBoards() {
+    const res = await fetch(`${API_URL}/pinterest/boards`, { headers: authHeaders() })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+}
+
+export async function getPinterestBoardPins(boardId) {
+    const res = await fetch(`${API_URL}/pinterest/boards/${boardId}/pins`, { headers: authHeaders() })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+}
+
+export async function disconnectPinterest() {
+    const res = await fetch(`${API_URL}/pinterest/disconnect`, {
+        method: "DELETE",
+        headers: authHeaders()
+    })
+    if (!res.ok) throw new Error(await res.text())
+}

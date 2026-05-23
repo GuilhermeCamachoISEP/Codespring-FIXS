@@ -54,7 +54,7 @@ export default function WardrobeUpload() {
                 setResults(prev => [result, ...prev])
             } catch (err) {
                 failed.push(item)
-                setError("A AI nao conseguiu classificar uma ou mais pecas. Confirma a GEMINI_API_KEY no backend.")
+                setError(err?.message || "A AI não conseguiu classificar uma ou mais peças. Confirma a GROQ_API_KEY no backend.")
             }
         }
         setQueue(failed)

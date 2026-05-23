@@ -11,7 +11,19 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=AIzaSyBs3MQXiQXBXfcWN6lZJeFgu1z4GNAKD-Y\" -H \"Content-Type: application/json\" -d '{\"contents\":[{\"parts\":[{\"text\":\"hi\"}]}]}')",
       "Bash(netstat -ano)",
       "Bash(awk '{print $NF}')",
-      "Bash(curl -s -w \"\\\\nHTTP:%{http_code}\" \"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=AIzaSyBs3MQXiQXBXfcWN6lZJeFgu1z4GNAKD-Y\" -H \"Content-Type: application/json\" -d '{\"contents\":[{\"parts\":[{\"text\":\"hi\"}]}]}')"
+      "Bash(curl -s -w \"\\\\nHTTP:%{http_code}\" \"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=AIzaSyBs3MQXiQXBXfcWN6lZJeFgu1z4GNAKD-Y\" -H \"Content-Type: application/json\" -d '{\"contents\":[{\"parts\":[{\"text\":\"hi\"}]}]}')",
+      "Bash(git stash *)",
+      "Bash(git rm *)",
+      "Bash(xargs git rm --cached)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(curl -s http://localhost:8080/ai/status)",
+      "WebFetch(domain:console.groq.com)",
+      "Bash(del \"C:\\\\Users\\\\renat\\\\IdeaProjects\\\\Codespring-FIXS\\\\backend\\\\demo\\\\demo\\\\src\\\\main\\\\java\\\\com\\\\example\\\\demo\\\\service\\\\PinterestService.java\")",
+      "Bash(del \"C:\\\\Users\\\\renat\\\\IdeaProjects\\\\Codespring-FIXS\\\\backend\\\\demo\\\\demo\\\\src\\\\main\\\\java\\\\com\\\\example\\\\demo\\\\controller\\\\PinterestController.java\")",
+      "Bash(del \"C:\\\\Users\\\\renat\\\\IdeaProjects\\\\Codespring-FIXS\\\\backend\\\\demo\\\\demo\\\\src\\\\main\\\\java\\\\com\\\\example\\\\demo\\\\dto\\\\PinterestBoard.java\")",
+      "Bash(del \"C:\\\\Users\\\\renat\\\\IdeaProjects\\\\Codespring-FIXS\\\\backend\\\\demo\\\\demo\\\\src\\\\main\\\\java\\\\com\\\\example\\\\demo\\\\dto\\\\PinterestPin.java\")"
     ]
   }
 }
