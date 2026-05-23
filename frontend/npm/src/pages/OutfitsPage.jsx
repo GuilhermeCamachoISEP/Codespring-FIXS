@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react"
 import { getOutfits } from "../services/api"
+import { useAuth } from "../context/AuthContext"
 import AppHeader from "../components/AppHeader"
 import { RefreshCw } from "../components/Icons"
+import CalendarMock from "../components/CalendarMock"
 
 const TEMP_LABELS = {
   "very-cold": "Muito frio",
@@ -12,52 +14,117 @@ const TEMP_LABELS = {
   hot: "Muito quente",
 }
 
+const CACHE_KEY = "stylist_outfit_cache"
+
+function loadCache(userId) {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    if (!raw) return null
+    const cached = JSON.parse(raw)
+    if (cached.userId !== userId) return null   // different user
+    if (!cached.outfit) return null             // empty result, don't persist
+    return cached
+  } catch {
+    return null
+  }
+}
+
+function saveCache(userId, outfit, weather, advisory) {
+  if (!outfit) return   // never cache an empty state
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      userId,
+      outfit,
+      weather,
+      advisory,
+      savedAt: Date.now()
+    }))
+  } catch {
+    /* storage quota — silently ignore */
+  }
+}
+
+function clearCache() {
+  localStorage.removeItem(CACHE_KEY)
+}
+
 export default function OutfitsPage() {
-  const [outfits, setOutfits] = useState([])
-  const [weather, setWeather] = useState(null)
+  const { user } = useAuth()
+  const [outfit, setOutfit]     = useState(null)
+  const [weather, setWeather]   = useState(null)
   const [advisory, setAdvisory] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading]   = useState(true)
   const [regenerating, setRegenerating] = useState(false)
-  const [error, setError] = useState("")
+  const [error, setError]       = useState("")
   const coords = useRef(null)
 
+  // On mount: serve cache immediately, only hit the API if nothing is cached
   useEffect(() => {
-    if (!navigator.geolocation) { loadData(null, null); return }
+    const cached = loadCache(user?.id)
+    if (cached) {
+      setOutfit(cached.outfit)
+      setWeather(cached.weather)
+      setAdvisory(cached.advisory)
+      setLoading(false)
+      return
+    }
+    requestGeolocationThenFetch(false)
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function requestGeolocationThenFetch(isRegen) {
+    if (!navigator.geolocation) {
+      fetchOutfit(null, null, isRegen)
+      return
+    }
     navigator.geolocation.getCurrentPosition(
       pos => {
         coords.current = { lat: pos.coords.latitude, lon: pos.coords.longitude }
-        loadData(coords.current.lat, coords.current.lon)
+        fetchOutfit(coords.current.lat, coords.current.lon, isRegen)
       },
-      () => loadData(null, null),
+      () => fetchOutfit(null, null, isRegen),
       { timeout: 6000 }
     )
-  }, [])
+  }
 
-  async function loadData(lat, lon, isRegen = false) {
+  async function fetchOutfit(lat, lon, isRegen = false) {
     isRegen ? setRegenerating(true) : setLoading(true)
     setError("")
     try {
       const data = await getOutfits(lat, lon)
-      setOutfits(data.outfits ?? [])
+      const single = (data.outfits ?? [])[0] ?? null
+      setOutfit(single)
       setWeather(data.weather ?? null)
       setAdvisory(data.advisory ?? null)
+      saveCache(user?.id, single, data.weather ?? null, data.advisory ?? null)
     } catch (err) {
-      setError("Erro ao gerar outfits: " + err.message)
+      setError("Erro ao gerar outfit: " + err.message)
     } finally {
       setLoading(false)
       setRegenerating(false)
     }
   }
 
-  function reload() {
-    loadData(coords.current?.lat ?? null, coords.current?.lon ?? null, true)
+  function handleRegenerate() {
+    clearCache()
+    if (coords.current) {
+      fetchOutfit(coords.current.lat, coords.current.lon, true)
+    } else {
+      requestGeolocationThenFetch(true)
+    }
   }
 
   return (
     <div className="app-container">
       <AppHeader />
 
-      {weather && <WeatherBar weather={weather} advisory={advisory} />}
+      <div style={{ display: "flex", gap: "16px", marginBottom: "16px", flexWrap: "wrap", alignItems: "stretch" }}>
+        <div style={{ flex: "2 1 400px", minWidth: 0 }}>
+          {weather ? <WeatherBar weather={weather} advisory={advisory} /> : <div className="weather-advisory" style={{ padding: "1.5rem" }}>A obter clima...</div>}
+        </div>
+        <div style={{ flex: "1 1 250px", minWidth: 0 }}>
+          <CalendarMock />
+        </div>
+      </div>
 
       {advisory?.wardrobeAlert && (
         <div className="weather-alert" style={{ marginBottom: "16px" }}>
@@ -68,18 +135,17 @@ export default function OutfitsPage() {
 
       <div className="outfits-section-header">
         <h2 className="outfits-section-title">
-          {loading ? "A gerar outfits…" : `${outfits.length} outfit${outfits.length !== 1 ? "s" : ""} para hoje`}
+          {loading ? "A gerar outfit…" : outfit ? "Outfit para hoje" : "Sem outfit gerado"}
         </h2>
         <button
           className="btn btn-secondary"
-          onClick={reload}
+          onClick={handleRegenerate}
           disabled={loading || regenerating}
         >
-          {regenerating ? (
-            <><span className="loading-spinner" /> A gerar…</>
-          ) : (
-            <><RefreshCw /> Gerar novos</>
-          )}
+          {regenerating
+            ? <><span className="loading-spinner" /> A gerar…</>
+            : <><RefreshCw /> Gerar novo</>
+          }
         </button>
       </div>
 
@@ -87,7 +153,7 @@ export default function OutfitsPage() {
         <div className="loading-state">
           <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>✨</div>
           <p>
-            O Gemini AI está a combinar as tuas peças
+            O AI está a combinar as tuas peças
             {weather ? ` para ${Math.round(weather.temperature)}°C em ${weather.city}` : ""}…
           </p>
         </div>
@@ -97,16 +163,16 @@ export default function OutfitsPage() {
         <div className="empty-state">
           <div style={{ fontSize: "2rem" }}>⚠️</div>
           <p>{error}</p>
-          <button className="btn btn-primary" style={{ marginTop: "1rem" }} onClick={reload}>
+          <button className="btn btn-primary" style={{ marginTop: "1rem" }} onClick={handleRegenerate}>
             Tentar novamente
           </button>
         </div>
       )}
 
-      {!loading && !error && outfits.length === 0 && (
+      {!loading && !error && !outfit && (
         <div className="empty-state">
           <div style={{ fontSize: "3rem" }}>👔</div>
-          <p style={{ marginBottom: "0.5rem" }}>Ainda não há outfits gerados.</p>
+          <p style={{ marginBottom: "0.5rem" }}>Ainda não há outfit gerado.</p>
           <p style={{ fontSize: "0.9rem" }}>Adiciona peças ao teu armário primeiro.</p>
           <a href="/wardrobe/upload">
             <button className="btn btn-primary" style={{ marginTop: "1rem" }}>
@@ -116,19 +182,13 @@ export default function OutfitsPage() {
         </div>
       )}
 
-      {!loading && outfits.length > 0 && (
-        <div className="outfits-grid">
-          {outfits.map((outfit, i) => (
-            <OutfitCard key={i} outfit={outfit} />
-          ))}
-        </div>
-      )}
+      {!loading && outfit && <OutfitCard outfit={outfit} />}
     </div>
   )
 }
 
 function WeatherBar({ weather, advisory }) {
-  const firstTip = advisory?.tips?.[0] ?? null
+  const firstTip  = advisory?.tips?.[0] ?? null
   const extraTips = advisory?.tips?.slice(1) ?? []
 
   return (

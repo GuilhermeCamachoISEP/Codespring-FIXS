@@ -14,18 +14,16 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Base64;
 import java.util.List;
-import com.example.demo.dto.ChatRequest;
 
 @Service
 public class ClaudeService {
 
-    private static final String API_URL = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s";
+    private static final String GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+    private static final String VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+    private static final String TEXT_MODEL = "llama-3.3-70b-versatile";
 
-    @Value("${gemini.api.key}")
+    @Value("${groq.api.key:}")
     private String apiKey;
-
-    @Value("${gemini.model}")
-    private String model;
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final ObjectMapper objectMapper;
@@ -36,41 +34,53 @@ public class ClaudeService {
 
     public boolean isConfigured() {
         return apiKey != null
-                && !apiKey.contains("...")
+                && !apiKey.isBlank()
                 && !"changeme".equals(apiKey)
-                && !apiKey.contains("cola-a-tua-chave")
-                && apiKey.length() > 24;
+                && apiKey.length() > 20;
     }
 
     public String getModel() {
-        return model;
+        return TEXT_MODEL;
     }
+
+    // ─── Image classification ────────────────────────────────────────────────
 
     public ClothingMetadata classifyClothing(byte[] imageBytes, String mediaType, String categoryHint) {
         if (!isConfigured()) {
             throw new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE,
-                    "AI API key missing. Define GEMINI_API_KEY before starting the backend."
+                    "AI API key missing. Define GROQ_API_KEY before starting the backend."
             );
         }
 
         try {
             String base64 = Base64.getEncoder().encodeToString(imageBytes);
-            String body = buildRequestBody(base64, mediaType, categoryHint);
+            String body = buildVisionRequestBody(base64, mediaType, categoryHint);
 
-            HttpResponse<String> response = executeWithRetryAndFallback(objectMapper.readTree(body));
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(GROQ_URL))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() != 200) {
-                System.err.println("Gemini API error " + response.statusCode() + ": " + response.body());
+                System.err.println("Groq API error " + response.statusCode() + ": " + response.body());
                 throw new ResponseStatusException(
                         HttpStatus.BAD_GATEWAY,
-                        "AI classification failed: Gemini returned HTTP " + response.statusCode()
+                        "AI classification failed: Groq returned HTTP " + response.statusCode()
                 );
             }
 
-            String text = extractGeminiText(response.body());
-            // Strip markdown code fences if present
+            String text = extractGroqText(response.body());
             text = text.replaceAll("```json\\s*", "").replaceAll("```\\s*", "").trim();
+            // Extract the JSON object in case the model adds extra prose
+            int start = text.indexOf('{');
+            int end   = text.lastIndexOf('}');
+            if (start >= 0 && end > start) text = text.substring(start, end + 1);
+
             ClothingMetadata metadata = objectMapper.readValue(text, ClothingMetadata.class);
             validateMetadata(metadata);
             return metadata;
@@ -78,7 +88,7 @@ public class ClaudeService {
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {
-            System.err.println("Gemini classification failed: " + e.getMessage());
+            System.err.println("Groq classification failed: " + e.getMessage());
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY,
                     "AI classification failed. Check backend logs for details."
@@ -86,135 +96,67 @@ public class ClaudeService {
         }
     }
 
-    private String buildRequestBody(String base64, String mediaType, String categoryHint) throws Exception {
-        var imageData = objectMapper.createObjectNode()
-                .put("mimeType", mediaType)
-                .put("data", base64);
-
-        var imageContent = objectMapper.createObjectNode();
-        imageContent.set("inlineData", imageData);
-
-        var textContent = objectMapper.createObjectNode()
+    private String buildVisionRequestBody(String base64, String mediaType, String categoryHint) throws Exception {
+        var textPart = objectMapper.createObjectNode()
+                .put("type", "text")
                 .put("text", CLASSIFICATION_PROMPT.formatted(normalizeCategory(categoryHint)));
 
-        var partsArray = objectMapper.createArrayNode();
-        partsArray.add(textContent);
-        partsArray.add(imageContent);
+        var imageUrlNode = objectMapper.createObjectNode()
+                .put("url", "data:" + mediaType + ";base64," + base64);
+        var imagePart = objectMapper.createObjectNode().put("type", "image_url");
+        imagePart.set("image_url", imageUrlNode);
 
-        var content = objectMapper.createObjectNode()
-                .put("role", "user");
-        content.set("parts", partsArray);
+        var contentArray = objectMapper.createArrayNode();
+        contentArray.add(textPart);
+        contentArray.add(imagePart);
 
-        var contentsArray = objectMapper.createArrayNode();
-        contentsArray.add(content);
+        var message = objectMapper.createObjectNode().put("role", "user");
+        message.set("content", contentArray);
 
-        var generationConfig = objectMapper.createObjectNode()
+        var messagesArray = objectMapper.createArrayNode();
+        messagesArray.add(message);
+
+        var requestBody = objectMapper.createObjectNode()
+                .put("model", VISION_MODEL)
                 .put("temperature", 0.1)
-                .put("maxOutputTokens", 512)
-                .put("responseMimeType", "application/json");
-
-        var requestBody = objectMapper.createObjectNode();
-        requestBody.set("contents", contentsArray);
-        requestBody.set("generationConfig", generationConfig);
+                .put("max_tokens", 512);
+        requestBody.set("messages", messagesArray);
 
         return objectMapper.writeValueAsString(requestBody);
     }
+
+    // ─── Text generation ─────────────────────────────────────────────────────
 
     public String generateOutfitsRaw(String prompt) {
         try {
             if (!isConfigured()) return "[]";
 
-            var textContent = objectMapper.createObjectNode().put("text", prompt);
+            String body = buildTextRequestBody(prompt, 0.4, 2048);
 
-            var partsArray = objectMapper.createArrayNode();
-            partsArray.add(textContent);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(GROQ_URL))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
 
-            var content = objectMapper.createObjectNode().put("role", "user");
-            content.set("parts", partsArray);
-
-            var contentsArray = objectMapper.createArrayNode();
-            contentsArray.add(content);
-
-            var generationConfig = objectMapper.createObjectNode()
-                    .put("temperature", 0.4)
-                    .put("maxOutputTokens", 2048)
-                    .put("responseMimeType", "application/json");
-
-            var requestBody = objectMapper.createObjectNode();
-            requestBody.set("contents", contentsArray);
-            requestBody.set("generationConfig", generationConfig);
-
-            HttpResponse<String> response = executeWithRetryAndFallback(requestBody);
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() != 200) {
-                System.err.println("Gemini outfit API error " + response.statusCode() + ": " + response.body());
+                System.err.println("Groq outfit API error " + response.statusCode() + ": " + response.body());
                 return "[]";
             }
 
-            String text = extractGeminiText(response.body());
+            String text = extractGroqText(response.body());
             text = text.replaceAll("```json\\s*", "").replaceAll("```\\s*", "").trim();
+            int start = text.indexOf('[');
+            int end   = text.lastIndexOf(']');
+            if (start >= 0 && end > start) text = text.substring(start, end + 1);
             return text;
 
         } catch (Exception e) {
-            System.err.println("Gemini outfit generation failed: " + e.getMessage());
+            System.err.println("Groq outfit generation failed: " + e.getMessage());
             return "[]";
-        }
-    }
-
-    public String chat(String systemPrompt, List<ChatRequest.ChatMessage> history, String newMessage) {
-        try {
-            if (!isConfigured()) return "AI não configurada no backend.";
-
-            var requestBody = objectMapper.createObjectNode();
-
-            if (systemPrompt != null && !systemPrompt.isBlank()) {
-                var sysInstruction = objectMapper.createObjectNode();
-                var sysParts = objectMapper.createArrayNode();
-                sysParts.add(objectMapper.createObjectNode().put("text", systemPrompt));
-                sysInstruction.set("parts", sysParts);
-                requestBody.set("systemInstruction", sysInstruction);
-            }
-
-            var contentsArray = objectMapper.createArrayNode();
-
-            if (history != null) {
-                for (var msg : history) {
-                    var content = objectMapper.createObjectNode()
-                            .put("role", msg.getRole() != null ? msg.getRole() : "user");
-                    var partsArray = objectMapper.createArrayNode();
-                    partsArray.add(objectMapper.createObjectNode().put("text", msg.getContent()));
-                    content.set("parts", partsArray);
-                    contentsArray.add(content);
-                }
-            }
-
-            var newContent = objectMapper.createObjectNode().put("role", "user");
-            var newPartsArray = objectMapper.createArrayNode();
-            newPartsArray.add(objectMapper.createObjectNode().put("text", newMessage));
-            newContent.set("parts", newPartsArray);
-            contentsArray.add(newContent);
-
-            requestBody.set("contents", contentsArray);
-
-            var generationConfig = objectMapper.createObjectNode()
-                    .put("temperature", 0.7)
-                    .put("maxOutputTokens", 2048);
-            
-            requestBody.set("generationConfig", generationConfig);
-
-            HttpResponse<String> response = executeWithRetryAndFallback(requestBody);
-
-            if (response.statusCode() != 200) {
-                System.err.println("Gemini chat API error " + response.statusCode() + ": " + response.body());
-                return "Desculpa, ocorreu um erro ao contactar a IA.";
-            }
-
-            String text = extractGeminiText(response.body());
-            return text;
-
-        } catch (Exception e) {
-            System.err.println("Gemini chat failed: " + e.getMessage());
-            return "Desculpa, ocorreu um erro interno.";
         }
     }
 
@@ -222,83 +164,127 @@ public class ClaudeService {
         try {
             if (!isConfigured()) return "[]";
 
-            var textContent = objectMapper.createObjectNode().put("text", prompt);
-            var partsArray = objectMapper.createArrayNode();
-            partsArray.add(textContent);
-            var content = objectMapper.createObjectNode().put("role", "user");
-            content.set("parts", partsArray);
-            var contentsArray = objectMapper.createArrayNode();
-            contentsArray.add(content);
+            String body = buildTextRequestBody(prompt, 0.3, 512);
 
-            var generationConfig = objectMapper.createObjectNode()
-                    .put("temperature", 0.3)
-                    .put("maxOutputTokens", 512)
-                    .put("responseMimeType", "application/json");
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(GROQ_URL))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
 
-            var requestBody = objectMapper.createObjectNode();
-            requestBody.set("contents", contentsArray);
-            requestBody.set("generationConfig", generationConfig);
-
-            HttpResponse<String> response = executeWithRetryAndFallback(requestBody);
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() != 200) {
-                System.err.println("Gemini generateJson error " + response.statusCode() + ": " + response.body());
+                System.err.println("Groq generateJson error " + response.statusCode() + ": " + response.body());
                 return "[]";
             }
 
-            String text = extractGeminiText(response.body());
-            return text.replaceAll("```json\\s*", "").replaceAll("```\\s*", "").trim();
+            String text = extractGroqText(response.body());
+            text = text.replaceAll("```json\\s*", "").replaceAll("```\\s*", "").trim();
+            // Support both array and object responses
+            int startArr = text.indexOf('[');
+            int startObj = text.indexOf('{');
+            int start = (startArr >= 0 && startObj >= 0) ? Math.min(startArr, startObj)
+                      : (startArr >= 0) ? startArr : startObj;
+            int endArr  = text.lastIndexOf(']');
+            int endObj  = text.lastIndexOf('}');
+            int end = Math.max(endArr, endObj);
+            if (start >= 0 && end > start) text = text.substring(start, end + 1);
+            return text;
 
         } catch (Exception e) {
-            System.err.println("Gemini generateJson failed: " + e.getMessage());
+            System.err.println("Groq generateJson failed: " + e.getMessage());
             return "[]";
         }
     }
 
-    private String geminiUrl() {
-        return API_URL.formatted(model, apiKey);
+    private String buildTextRequestBody(String prompt, double temperature, int maxTokens) throws Exception {
+        var message = objectMapper.createObjectNode()
+                .put("role", "user")
+                .put("content", prompt);
+
+        var messagesArray = objectMapper.createArrayNode();
+        messagesArray.add(message);
+
+        var requestBody = objectMapper.createObjectNode()
+                .put("model", TEXT_MODEL)
+                .put("temperature", temperature)
+                .put("max_tokens", maxTokens);
+        requestBody.set("messages", messagesArray);
+
+        return objectMapper.writeValueAsString(requestBody);
     }
 
-    private HttpResponse<String> executeWithRetryAndFallback(JsonNode requestBody) throws Exception {
-        int maxRetries = 3;
-        int attempt = 0;
-        String currentModel = model;
-        HttpResponse<String> lastResponse = null;
+    // ─── Response parsing ─────────────────────────────────────────────────────
 
-        while (attempt < maxRetries) {
+    private String extractGroqText(String responseBody) throws Exception {
+        JsonNode root = objectMapper.readTree(responseBody);
+        JsonNode content = root.path("choices").path(0).path("message").path("content");
+        if (content.isMissingNode()) {
+            throw new IllegalArgumentException("Groq response missing content. Body: " + responseBody);
+        }
+        return content.asText();
+    }
+
+    public String chat(String systemPrompt, List<com.example.demo.dto.ChatRequest.ChatMessage> history, String userMessage) {
+        try {
+            if (!isConfigured()) return "AI is not configured.";
+
+            var messagesArray = objectMapper.createArrayNode();
+
+            var sysMessage = objectMapper.createObjectNode()
+                    .put("role", "system")
+                    .put("content", systemPrompt);
+            messagesArray.add(sysMessage);
+
+            if (history != null) {
+                for (com.example.demo.dto.ChatRequest.ChatMessage msg : history) {
+                    String role = msg.getRole();
+                    if ("model".equals(role)) role = "assistant";
+                    var histMsg = objectMapper.createObjectNode()
+                            .put("role", role)
+                            .put("content", msg.getContent());
+                    messagesArray.add(histMsg);
+                }
+            }
+
+            var userMsg = objectMapper.createObjectNode()
+                    .put("role", "user")
+                    .put("content", userMessage);
+            messagesArray.add(userMsg);
+
+            var requestBody = objectMapper.createObjectNode()
+                    .put("model", TEXT_MODEL)
+                    .put("temperature", 0.7)
+                    .put("max_tokens", 1024);
+            requestBody.set("messages", messagesArray);
+
+            String body = objectMapper.writeValueAsString(requestBody);
+
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(API_URL.formatted(currentModel, apiKey)))
-                    .header("content-type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
+                    .uri(URI.create(GROQ_URL))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
 
-            lastResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-            if (lastResponse.statusCode() == 200) {
-                return lastResponse;
-            } else if (lastResponse.statusCode() == 503 || lastResponse.statusCode() == 429) {
-                attempt++;
-                System.err.println("Gemini overloaded (" + lastResponse.statusCode() + "). Retrying " + attempt + "/" + maxRetries);
-                if (attempt == 2) {
-                    currentModel = "gemini-1.5-flash"; // Fallback to ultra-stable model
-                    System.err.println("Falling back to stable model: " + currentModel);
-                }
-                Thread.sleep(1500L * attempt);
-            } else {
-                return lastResponse; // other errors like 400, 404 should fail fast
+            if (response.statusCode() != 200) {
+                System.err.println("Groq chat error " + response.statusCode() + ": " + response.body());
+                return "Desculpa, ocorreu um erro de comunicação com a AI.";
             }
+
+            return extractGroqText(response.body());
+
+        } catch (Exception e) {
+            System.err.println("Groq chat failed: " + e.getMessage());
+            return "Ocorreu um erro interno ao processar a tua mensagem.";
         }
-        return lastResponse;
     }
 
-    private String extractGeminiText(String responseBody) throws Exception {
-        JsonNode root = objectMapper.readTree(responseBody);
-        JsonNode parts = root.path("candidates").path(0).path("content").path("parts");
-        if (!parts.isArray() || parts.isEmpty()) {
-            throw new IllegalArgumentException("Gemini response did not include text parts");
-        }
-        return parts.get(0).path("text").asText();
-    }
+    // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private String normalizeCategory(String categoryHint) {
         if (categoryHint == null) return "tops";
@@ -336,8 +322,8 @@ public class ClaudeService {
     }
 
     private static final String CLASSIFICATION_PROMPT = """
-            You are a fashion classifier. Analyze this clothing item and respond ONLY with valid JSON, no markdown:
-            The user selected this likely category: "%s". Prefer it unless the image clearly proves another category.
+            You are a fashion classifier. Analyze this clothing item image and respond ONLY with valid JSON — no markdown, no extra text, just the JSON object.
+            The user selected this likely category: "%s". Prefer it unless the image clearly shows otherwise.
             {
               "category": "tops|bottoms|shoes|jackets|accessories",
               "subcategory": "specific item name (hoodie, cargo pants, sneakers, etc.)",

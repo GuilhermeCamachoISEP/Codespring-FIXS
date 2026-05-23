@@ -1,0 +1,26 @@
+# H2 database files (runtime — never commit)
+data/
+*.mv.db
+*.trace.db
+
+# Root-level user upload folder (runtime — never commit)
+/uploads/
+
+# User-uploaded images inside backend uploads (UUID filenames only)
+# Seeder images with descriptive names are intentionally kept tracked
+backend/demo/demo/uploads/????????-????-????-????-????????????.*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# OS
+.DS_Store
+Thumbs.db
