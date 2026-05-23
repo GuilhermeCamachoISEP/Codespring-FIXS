@@ -160,58 +160,7 @@ public class ClaudeService {
         }
     }
 
-    public String chat(String systemPrompt, List<com.example.demo.dto.ChatRequest.ChatMessage> history, String userMessage) {
-        try {
-            if (!isConfigured()) return "AI is not configured.";
 
-            var messagesArray = objectMapper.createArrayNode();
-
-            var sysMsg = objectMapper.createObjectNode()
-                    .put("role", "system")
-                    .put("content", systemPrompt);
-            messagesArray.add(sysMsg);
-
-            if (history != null) {
-                for (var msg : history) {
-                    var node = objectMapper.createObjectNode()
-                            .put("role", msg.getRole())
-                            .put("content", msg.getContent());
-                    messagesArray.add(node);
-                }
-            }
-
-            var userMsg = objectMapper.createObjectNode()
-                    .put("role", "user")
-                    .put("content", userMessage);
-            messagesArray.add(userMsg);
-
-            var requestBody = objectMapper.createObjectNode()
-                    .put("model", TEXT_MODEL)
-                    .put("temperature", 0.4)
-                    .put("max_tokens", 2048);
-            requestBody.set("messages", messagesArray);
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(GROQ_URL))
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + apiKey)
-                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
-                    .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() != 200) {
-                System.err.println("Groq chat API error " + response.statusCode() + ": " + response.body());
-                return "Desculpa, ocorreu um erro ao contactar a IA.";
-            }
-
-            return extractGroqText(response.body());
-
-        } catch (Exception e) {
-            System.err.println("Groq chat failed: " + e.getMessage());
-            return "Desculpa, ocorreu um erro interno.";
-        }
-    }
 
     public String generateJson(String prompt) {
         try {
@@ -278,6 +227,63 @@ public class ClaudeService {
             throw new IllegalArgumentException("Groq response missing content. Body: " + responseBody);
         }
         return content.asText();
+    }
+
+    public String chat(String systemPrompt, List<com.example.demo.dto.ChatRequest.ChatMessage> history, String userMessage) {
+        try {
+            if (!isConfigured()) return "AI is not configured.";
+
+            var messagesArray = objectMapper.createArrayNode();
+
+            var sysMessage = objectMapper.createObjectNode()
+                    .put("role", "system")
+                    .put("content", systemPrompt);
+            messagesArray.add(sysMessage);
+
+            if (history != null) {
+                for (com.example.demo.dto.ChatRequest.ChatMessage msg : history) {
+                    String role = msg.getRole();
+                    if ("model".equals(role)) role = "assistant";
+                    var histMsg = objectMapper.createObjectNode()
+                            .put("role", role)
+                            .put("content", msg.getContent());
+                    messagesArray.add(histMsg);
+                }
+            }
+
+            var userMsg = objectMapper.createObjectNode()
+                    .put("role", "user")
+                    .put("content", userMessage);
+            messagesArray.add(userMsg);
+
+            var requestBody = objectMapper.createObjectNode()
+                    .put("model", TEXT_MODEL)
+                    .put("temperature", 0.7)
+                    .put("max_tokens", 1024);
+            requestBody.set("messages", messagesArray);
+
+            String body = objectMapper.writeValueAsString(requestBody);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(GROQ_URL))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() != 200) {
+                System.err.println("Groq chat error " + response.statusCode() + ": " + response.body());
+                return "Desculpa, ocorreu um erro de comunicação com a AI.";
+            }
+
+            return extractGroqText(response.body());
+
+        } catch (Exception e) {
+            System.err.println("Groq chat failed: " + e.getMessage());
+            return "Ocorreu um erro interno ao processar a tua mensagem.";
+        }
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
