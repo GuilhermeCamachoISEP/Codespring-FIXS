@@ -1,26 +1,83 @@
 import { useEffect, useState } from "react"
-import { getTransactions } from "../services/api"
+import { useNavigate } from "react-router-dom"
+import { useAuth } from "../context/AuthContext"
+import { getWardrobeCount } from "../services/api"
 
-function Dashboard() {
-    const [data, setData] = useState([])
+export default function Dashboard() {
+    const { user, logout } = useAuth()
+    const navigate = useNavigate()
+    const [wardrobeCount, setWardrobeCount] = useState(null)
 
     useEffect(() => {
-        getTransactions().then(setData)
+        getWardrobeCount()
+            .then(d => setWardrobeCount(d.count))
+            .catch(() => setWardrobeCount(0))
     }, [])
 
+    function handleLogout() {
+        logout()
+        navigate("/login")
+    }
+
     return (
-        <div>
-            <h2>Dashboard</h2>
-
-            {data.length === 0 && <p>Sem dados ainda</p>}
-
-            {data.map((item) => (
-                <div key={item.id}>
-                    {item.name}
+        <div className="dashboard-container">
+            <header className="dashboard-header">
+                <span className="auth-logo">STYLIST AI</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                    <span style={{ color: "#aaa", fontSize: "0.9rem" }}>Olá, {user?.name}</span>
+                    <button className="btn-outline" onClick={handleLogout}>Sair</button>
                 </div>
-            ))}
+            </header>
+
+            <div className="dashboard-content">
+                <div className="dashboard-grid">
+                    {/* Wardrobe card */}
+                    <div className="dash-card" onClick={() => navigate("/wardrobe")}>
+                        <div className="dash-card-icon">👔</div>
+                        <div className="dash-card-body">
+                            <h3>O meu armário</h3>
+                            <p>
+                                {wardrobeCount === null
+                                    ? "A carregar..."
+                                    : wardrobeCount === 0
+                                        ? "Adiciona a tua primeira peça"
+                                        : `${wardrobeCount} peça${wardrobeCount !== 1 ? "s" : ""} adicionada${wardrobeCount !== 1 ? "s" : ""}`}
+                            </p>
+                        </div>
+                        <span className="dash-arrow">→</span>
+                    </div>
+
+                    {/* Upload card */}
+                    <div className="dash-card dash-card-accent" onClick={() => navigate("/wardrobe/upload")}>
+                        <div className="dash-card-icon">📷</div>
+                        <div className="dash-card-body">
+                            <h3>Adicionar roupa</h3>
+                            <p>Claude AI classifica automaticamente</p>
+                        </div>
+                        <span className="dash-arrow">→</span>
+                    </div>
+
+                    {/* Outfit of the day — sprint 5 */}
+                    <div className="dash-card dash-card-disabled">
+                        <div className="dash-card-icon">✨</div>
+                        <div className="dash-card-body">
+                            <h3>Outfit do dia</h3>
+                            <p>Em breve — Sprint 5</p>
+                        </div>
+                        <span className="dash-badge">SOON</span>
+                    </div>
+
+                    {/* Weather — sprint 4 */}
+                    <div className="dash-card dash-card-disabled">
+                        <div className="dash-card-icon">🌤</div>
+                        <div className="dash-card-body">
+                            <h3>Clima hoje</h3>
+                            <p>Em breve — Sprint 4</p>
+                        </div>
+                        <span className="dash-badge">SOON</span>
+                    </div>
+                </div>
+            </div>
         </div>
     )
 }
-
-export default Dashboard
