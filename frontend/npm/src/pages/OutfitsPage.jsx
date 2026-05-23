@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react"
-import { getOutfits } from "../services/api"
+import { getOutfits, saveOutfitHistory } from "../services/api"
 import AppHeader from "../components/AppHeader"
 import { RefreshCw } from "../components/Icons"
 
@@ -41,6 +41,12 @@ export default function OutfitsPage() {
       setOutfits(data.outfits ?? [])
       setWeather(data.weather ?? null)
       setAdvisory(data.advisory ?? null)
+      
+      // Auto-save generated outfits asynchronously
+      if (data.outfits && data.outfits.length > 0) {
+        Promise.all(data.outfits.map(o => saveOutfitHistory(o.items)))
+            .catch(e => console.error("Failed to save outfit history", e))
+      }
     } catch (err) {
       setError("Erro ao gerar outfits: " + err.message)
     } finally {

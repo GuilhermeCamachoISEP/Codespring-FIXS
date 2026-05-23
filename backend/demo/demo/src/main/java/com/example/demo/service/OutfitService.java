@@ -4,6 +4,7 @@ import com.example.demo.domain.UserPreferences;
 import com.example.demo.domain.WardrobeItem;
 import com.example.demo.dto.OutfitSuggestion;
 import com.example.demo.dto.WeatherData;
+import com.example.demo.domain.OutfitHistory;
 import com.example.demo.repository.UserPreferencesRepository;
 import com.example.demo.repository.WardrobeItemRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -24,15 +25,18 @@ public class OutfitService {
     private final UserPreferencesRepository preferencesRepository;
     private final ClaudeService claudeService;
     private final ObjectMapper objectMapper;
+    private final OutfitHistoryService historyService;
 
     public OutfitService(WardrobeItemRepository wardrobeItemRepository,
                          UserPreferencesRepository preferencesRepository,
                          ClaudeService claudeService,
-                         ObjectMapper objectMapper) {
+                         ObjectMapper objectMapper,
+                         OutfitHistoryService historyService) {
         this.wardrobeItemRepository = wardrobeItemRepository;
         this.preferencesRepository = preferencesRepository;
         this.claudeService = claudeService;
         this.objectMapper = objectMapper;
+        this.historyService = historyService;
     }
 
     public List<OutfitSuggestion> generateOutfits(Long userId, WeatherData weather) {
@@ -43,7 +47,10 @@ public class OutfitService {
                 .map(UserPreferences::getStyleWeights)
                 .orElse("{}");
 
-        String prompt = buildPrompt(items, styleWeights, weather);
+        List<OutfitHistory> recentHistory = historyService.getLast7Outfits(userId);
+        List<OutfitHistory> likedHistory = historyService.getLikedOutfits(userId);
+
+        String prompt = buildPrompt(items, styleWeights, weather, recentHistory, likedHistory);
         String json = claudeService.generateOutfitsRaw(prompt);
         List<OutfitSuggestion> aiOutfits = parseOutfits(json, items);
         if (!aiOutfits.isEmpty()) {
@@ -52,7 +59,8 @@ public class OutfitService {
         return generateFallbackOutfits(items, styleWeights);
     }
 
-    private String buildPrompt(List<WardrobeItem> items, String styleWeights, WeatherData weather) {
+    private String buildPrompt(List<WardrobeItem> items, String styleWeights, WeatherData weather, 
+                               List<OutfitHistory> recentHistory, List<OutfitHistory> likedHistory) {
         try {
             var itemNodes = objectMapper.createArrayNode();
             for (WardrobeItem item : items) {
@@ -69,6 +77,24 @@ public class OutfitService {
             }
 
             String weatherContext = buildWeatherContext(weather);
+            
+            String recentOutfitsStr = "[]";
+            if (!recentHistory.isEmpty()) {
+                var recentArray = objectMapper.createArrayNode();
+                for (OutfitHistory h : recentHistory) {
+                    recentArray.add(objectMapper.readTree(h.getOutfitItems()));
+                }
+                recentOutfitsStr = objectMapper.writeValueAsString(recentArray);
+            }
+
+            String likedOutfitsStr = "[]";
+            if (!likedHistory.isEmpty()) {
+                var likedArray = objectMapper.createArrayNode();
+                for (OutfitHistory h : likedHistory) {
+                    likedArray.add(objectMapper.readTree(h.getOutfitItems()));
+                }
+                likedOutfitsStr = objectMapper.writeValueAsString(likedArray);
+            }
 
             return """
                     És um stylist de moda pessoal. Com base nas preferências de estilo e no armário do utilizador, cria combinações de outfits.
@@ -78,6 +104,15 @@ public class OutfitService {
 
                     Peças disponíveis no armário:
                     %s
+                    
+                    RECENT OUTFITS WORN (do not repeat these exact combinations):
+                    %s
+                    
+                    LIKED OUTFITS (user loves these — use as style reference, not to repeat them exactly, but understand the pattern):
+                    %s
+                    
+                    If wardrobe is too limited to avoid repetition, say:
+                    'You've been wearing similar combinations — here are 3 new pieces that would unlock more variety' in the description.
 
                     Cria entre 3 e 5 outfits completos. Regras:
                     - Cada outfit deve ter pelo menos uma parte de cima (tops ou jackets) e uma de baixo (bottoms) ou sapatos (shoes)
@@ -96,7 +131,7 @@ public class OutfitService {
                         "weatherNote": "Perfeito para este frio"
                       }
                     ]
-                    """.formatted(weatherContext, styleWeights, objectMapper.writeValueAsString(itemNodes));
+                    """.formatted(weatherContext, styleWeights, objectMapper.writeValueAsString(itemNodes), recentOutfitsStr, likedOutfitsStr);
         } catch (Exception e) {
             throw new RuntimeException("Failed to build outfit prompt", e);
         }

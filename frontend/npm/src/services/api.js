@@ -131,3 +131,33 @@ export async function sendChatMessage(message, history, lat, lon, mode = "conver
     if (!res.ok) throw new Error(await res.text())
     return res.json()
 }
+
+export async function saveOutfitHistory(outfitItems) {
+    const res = await fetch(`${API_URL}/outfits/history`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ outfitItems })
+    })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+}
+
+export async function getOutfitHistory() {
+    const res = await fetch(`${API_URL}/outfits/history`, { headers: authHeaders() })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+}
+
+export async function getLikedOutfits() {
+    const res = await fetch(`${API_URL}/outfits/history/liked`, { headers: authHeaders() })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+}
+
+export async function toggleOutfitLike(id) {
+    const res = await fetch(`${API_URL}/outfits/history/${id}/like`, {
+        method: "PATCH",
+        headers: authHeaders()
+    })
+    if (!res.ok) throw new Error(await res.text())
+}

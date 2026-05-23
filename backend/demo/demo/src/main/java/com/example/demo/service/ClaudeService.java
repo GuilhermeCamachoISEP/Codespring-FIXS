@@ -280,7 +280,7 @@ public class ClaudeService {
                 attempt++;
                 System.err.println("Gemini overloaded (" + lastResponse.statusCode() + "). Retrying " + attempt + "/" + maxRetries);
                 if (attempt == 2) {
-                    currentModel = "gemini-1.5-flash"; // Fallback to ultra-stable model
+                    currentModel = "gemini-1.5-flash-latest"; // Fallback to ultra-stable model
                     System.err.println("Falling back to stable model: " + currentModel);
                 }
                 Thread.sleep(1500L * attempt);
