@@ -79,7 +79,7 @@ export default function EventOutfits() {
       {loading && (
         <div className="loading-state">
           <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>✨</div>
-          <p>O Gemini AI está a criar os melhores outfits para o teu evento…</p>
+          <p>O Groq está a criar os melhores outfits para o teu evento…</p>
         </div>
       )}
 
