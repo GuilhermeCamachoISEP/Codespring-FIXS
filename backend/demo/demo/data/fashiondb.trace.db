@@ -1,0 +1,6 @@
+2026-05-23 18:54:21.793646+01:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "USERS" not found; SQL statement:
+SELECT id, username FROM users [42102-232]
+2026-05-23 18:56:04.096190+01:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "EVENT_RESERVATION" not found; SQL statement:
+SELECT * FROM event_reservation [42102-232]

@@ -12,6 +12,7 @@ import OutfitsPage from "./pages/OutfitsPage"
 import ChatPage from "./pages/ChatPage"
 import Landing from "./pages/Landing"
 import SettingsStyles from "./pages/SettingsStyles"
+import EventOutfits from "./pages/EventOutfits"
 import ProfilePage from "./pages/ProfilePage"
 import Lookbook from "./pages/Lookbook"
 
@@ -65,6 +66,7 @@ function AppRoutes() {
             <Route path="/lookbook" element={<ProtectedRoute><OnboardingGate><Lookbook /></OnboardingGate></ProtectedRoute>} />
             <Route path="/chat" element={<ProtectedRoute><OnboardingGate><ChatPage /></OnboardingGate></ProtectedRoute>} />
             <Route path="/preferences" element={<ProtectedRoute><OnboardingGate><SettingsStyles /></OnboardingGate></ProtectedRoute>} />
+            <Route path="/events/outfits" element={<ProtectedRoute><OnboardingGate><EventOutfits /></OnboardingGate></ProtectedRoute>} />
             <Route path="/settings/styles" element={<Navigate to="/preferences" replace />} />
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
             <Route path="/dashboard" element={<Navigate to={user ? "/outfits" : "/login"} replace />} />

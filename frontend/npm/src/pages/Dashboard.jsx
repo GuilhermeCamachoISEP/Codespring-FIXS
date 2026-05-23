@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import { getWardrobeCount, getWeather } from "../services/api"
+import CalendarMock from "../components/CalendarMock"
 
 const TEMP_LABELS = {
     "very-cold": "Muito frio",

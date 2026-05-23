@@ -161,3 +161,20 @@ export async function toggleOutfitLike(id) {
     })
     if (!res.ok) throw new Error(await res.text())
 }
+
+export async function getOutfitsForEvent(eventName, date, lat, lon) {
+    let params = `?eventName=${encodeURIComponent(eventName)}&date=${date}`
+    if (lat != null && lon != null) params += `&lat=${lat}&lon=${lon}`
+    const res = await fetch(`${API_URL}/outfits/event${params}`, { headers: authHeaders() })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+}
+
+export async function reserveOutfit(eventName, eventDate, itemIds) {
+    const res = await fetch(`${API_URL}/outfits/reserve`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ eventName, eventDate, itemIds })
+    })
+    if (!res.ok) throw new Error(await res.text())
+}
