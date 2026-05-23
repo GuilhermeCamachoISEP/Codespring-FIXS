@@ -31,6 +31,7 @@ Não está ligado a nenhuma ideia específica.
 backend/   → API
 frontend/  → UI
 docs/      → documentação
+  - [Como Usar a Base de Dados](./docs/DATABASE_GUIDE.md)
 
 ---
 
