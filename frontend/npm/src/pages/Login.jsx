@@ -18,7 +18,7 @@ export default function Login() {
         try {
             const data = await login(email, password)
             saveAuth(data)
-            navigate("/dashboard")
+            navigate("/outfits")
         } catch (err) {
             setError(err.message)
         } finally {

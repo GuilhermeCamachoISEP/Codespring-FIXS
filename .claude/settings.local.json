@@ -5,7 +5,9 @@
       "Bash(Select-Object Name, FullName, PSIsContainer)",
       "Bash(xargs wc -l)",
       "Bash(mvn compile *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\renat\\\\IdeaProjects\\\\Codespring-FIXS\\\\smart-ai-outfit-generator-ui\")",
+      "Bash(Write-Host \"Deleted\")"
     ]
   }
 }

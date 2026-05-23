@@ -6,12 +6,11 @@ import Login from "./pages/Login"
 import Register from "./pages/Register"
 import StyleSelect from "./pages/onboarding/StyleSelect"
 import OnboardingWardrobe from "./pages/onboarding/OnboardingWardrobe"
-import Dashboard from "./pages/Dashboard"
 import WardrobeGallery from "./pages/wardrobe/WardrobeGallery"
 import WardrobeUpload from "./pages/wardrobe/WardrobeUpload"
 import OutfitsPage from "./pages/OutfitsPage"
-import Landing from "./pages/Landing"
 import SettingsStyles from "./pages/SettingsStyles"
+import ProfilePage from "./pages/ProfilePage"
 
 function ProtectedRoute({ children }) {
     const { user } = useAuth()
@@ -32,22 +31,19 @@ function OnboardingGate({ children }) {
         return () => { active = false }
     }, [location.pathname])
 
-    if (error) {
-        return <Navigate to="/login" replace />
-    }
+    if (error) return <Navigate to="/login" replace />
 
     if (!status) {
-        return <div className="loading-state">A preparar a tua app...</div>
+        return (
+            <div className="loading-state" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                A preparar a tua app...
+            </div>
+        )
     }
 
     const isOnboarding = location.pathname.startsWith("/onboarding")
-    if (!status.complete && !isOnboarding) {
-        return <Navigate to={status.nextStep || "/onboarding/styles"} replace />
-    }
-
-    if (status.complete && location.pathname.startsWith("/onboarding")) {
-        return <Navigate to="/dashboard" replace />
-    }
+    if (!status.complete && !isOnboarding) return <Navigate to={status.nextStep || "/onboarding/styles"} replace />
+    if (status.complete && isOnboarding) return <Navigate to="/outfits" replace />
 
     return children
 }
@@ -56,17 +52,19 @@ function AppRoutes() {
     const { user } = useAuth()
     return (
         <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
-            <Route path="/register" element={user ? <Navigate to="/dashboard" replace /> : <Register />} />
+            <Route path="/login" element={user ? <Navigate to="/outfits" replace /> : <Login />} />
+            <Route path="/register" element={user ? <Navigate to="/outfits" replace /> : <Register />} />
             <Route path="/onboarding/styles" element={<ProtectedRoute><OnboardingGate><StyleSelect /></OnboardingGate></ProtectedRoute>} />
             <Route path="/onboarding/wardrobe" element={<ProtectedRoute><OnboardingGate><OnboardingWardrobe /></OnboardingGate></ProtectedRoute>} />
-            <Route path="/dashboard" element={<ProtectedRoute><OnboardingGate><Dashboard /></OnboardingGate></ProtectedRoute>} />
+            <Route path="/outfits" element={<ProtectedRoute><OnboardingGate><OutfitsPage /></OnboardingGate></ProtectedRoute>} />
             <Route path="/wardrobe" element={<ProtectedRoute><OnboardingGate><WardrobeGallery /></OnboardingGate></ProtectedRoute>} />
             <Route path="/wardrobe/upload" element={<ProtectedRoute><OnboardingGate><WardrobeUpload /></OnboardingGate></ProtectedRoute>} />
-            <Route path="/outfits" element={<ProtectedRoute><OnboardingGate><OutfitsPage /></OnboardingGate></ProtectedRoute>} />
-            <Route path="/settings/styles" element={<ProtectedRoute><OnboardingGate><SettingsStyles /></OnboardingGate></ProtectedRoute>} />
-            <Route path="*" element={<Navigate to={user ? "/dashboard" : "/"} replace />} />
+            <Route path="/preferences" element={<ProtectedRoute><OnboardingGate><SettingsStyles /></OnboardingGate></ProtectedRoute>} />
+            <Route path="/settings/styles" element={<Navigate to="/preferences" replace />} />
+            <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+            <Route path="/dashboard" element={<Navigate to={user ? "/outfits" : "/login"} replace />} />
+            <Route path="/" element={<Navigate to={user ? "/outfits" : "/login"} replace />} />
+            <Route path="*" element={<Navigate to={user ? "/outfits" : "/login"} replace />} />
         </Routes>
     )
 }
