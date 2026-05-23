@@ -94,7 +94,7 @@ export default function WardrobeGallery() {
                     >
                         <div className="wardrobe-img-wrap">
                             <img
-                                src={`http://localhost:8080${item.imageUrl}`}
+                                src={item.imageUrl?.startsWith("http") ? item.imageUrl : `http://localhost:8080${item.imageUrl}`}
                                 alt={item.subcategory}
                                 loading="lazy"
                             />
@@ -117,7 +117,7 @@ export default function WardrobeGallery() {
                     <div className="detail-panel" onClick={e => e.stopPropagation()}>
                         <button className="detail-close" onClick={() => setSelected(null)}>✕</button>
                         <img
-                            src={`http://localhost:8080${selected.imageUrl}`}
+                            src={selected.imageUrl?.startsWith("http") ? selected.imageUrl : `http://localhost:8080${selected.imageUrl}`}
                             alt={selected.subcategory}
                             className="detail-img"
                         />

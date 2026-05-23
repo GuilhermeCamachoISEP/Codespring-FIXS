@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard"
 import WardrobeGallery from "./pages/wardrobe/WardrobeGallery"
 import WardrobeUpload from "./pages/wardrobe/WardrobeUpload"
 import OutfitsPage from "./pages/OutfitsPage"
+import ChatPage from "./pages/ChatPage"
 import Landing from "./pages/Landing"
 import SettingsStyles from "./pages/SettingsStyles"
 
@@ -65,6 +66,7 @@ function AppRoutes() {
             <Route path="/wardrobe" element={<ProtectedRoute><OnboardingGate><WardrobeGallery /></OnboardingGate></ProtectedRoute>} />
             <Route path="/wardrobe/upload" element={<ProtectedRoute><OnboardingGate><WardrobeUpload /></OnboardingGate></ProtectedRoute>} />
             <Route path="/outfits" element={<ProtectedRoute><OnboardingGate><OutfitsPage /></OnboardingGate></ProtectedRoute>} />
+            <Route path="/chat" element={<ProtectedRoute><OnboardingGate><ChatPage /></OnboardingGate></ProtectedRoute>} />
             <Route path="/settings/styles" element={<ProtectedRoute><OnboardingGate><SettingsStyles /></OnboardingGate></ProtectedRoute>} />
             <Route path="*" element={<Navigate to={user ? "/dashboard" : "/"} replace />} />
         </Routes>

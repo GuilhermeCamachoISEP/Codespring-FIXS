@@ -165,7 +165,7 @@ function OutfitCard({ outfit }) {
             <div className="outfit-items">
                 {outfit.items.map(item => (
                     <div key={item.id} className="outfit-item">
-                        <img src={`http://localhost:8080${item.imageUrl}`} alt={item.subcategory} />
+                        <img src={item.imageUrl?.startsWith("http") ? item.imageUrl : `http://localhost:8080${item.imageUrl}`} alt={item.subcategory} />
                         <div className="outfit-item-label">
                             <span>{item.color} {item.subcategory}</span>
                             <span className="tag tag-category">{item.category}</span>

@@ -121,3 +121,13 @@ export async function getTransactions() {
     const res = await fetch(`${API_URL}/transactions`)
     return res.json()
 }
+
+export async function sendChatMessage(message, history, lat, lon, mode = "conversational") {
+    const res = await fetch(`${API_URL}/chat`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ message, history, lat, lon, mode })
+    })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+}
