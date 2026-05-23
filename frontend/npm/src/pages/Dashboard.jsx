@@ -25,6 +25,7 @@ export default function Dashboard() {
                 <span className="auth-logo">STYLIST AI</span>
                 <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                     <span style={{ color: "#aaa", fontSize: "0.9rem" }}>Olá, {user?.name}</span>
+                    <button className="btn-outline" style={{ padding: "0.5rem 1rem" }} onClick={() => navigate("/settings/styles")}>Preferências</button>
                     <button className="btn-outline" onClick={handleLogout}>Sair</button>
                 </div>
             </header>

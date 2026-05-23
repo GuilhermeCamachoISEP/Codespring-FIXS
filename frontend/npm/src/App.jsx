@@ -10,6 +10,8 @@ import Dashboard from "./pages/Dashboard"
 import WardrobeGallery from "./pages/wardrobe/WardrobeGallery"
 import WardrobeUpload from "./pages/wardrobe/WardrobeUpload"
 import OutfitsPage from "./pages/OutfitsPage"
+import Landing from "./pages/Landing"
+import SettingsStyles from "./pages/SettingsStyles"
 
 function ProtectedRoute({ children }) {
     const { user } = useAuth()
@@ -54,6 +56,7 @@ function AppRoutes() {
     const { user } = useAuth()
     return (
         <Routes>
+            <Route path="/" element={<Landing />} />
             <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
             <Route path="/register" element={user ? <Navigate to="/dashboard" replace /> : <Register />} />
             <Route path="/onboarding/styles" element={<ProtectedRoute><OnboardingGate><StyleSelect /></OnboardingGate></ProtectedRoute>} />
@@ -62,7 +65,8 @@ function AppRoutes() {
             <Route path="/wardrobe" element={<ProtectedRoute><OnboardingGate><WardrobeGallery /></OnboardingGate></ProtectedRoute>} />
             <Route path="/wardrobe/upload" element={<ProtectedRoute><OnboardingGate><WardrobeUpload /></OnboardingGate></ProtectedRoute>} />
             <Route path="/outfits" element={<ProtectedRoute><OnboardingGate><OutfitsPage /></OnboardingGate></ProtectedRoute>} />
-            <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
+            <Route path="/settings/styles" element={<ProtectedRoute><OnboardingGate><SettingsStyles /></OnboardingGate></ProtectedRoute>} />
+            <Route path="*" element={<Navigate to={user ? "/dashboard" : "/"} replace />} />
         </Routes>
     )
 }
