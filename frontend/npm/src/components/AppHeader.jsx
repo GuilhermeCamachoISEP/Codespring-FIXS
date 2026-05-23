@@ -52,7 +52,7 @@ export default function AppHeader() {
               onClick={() => navigate("/lookbook")}
             >
               <Book />
-              Lookbook
+              Histórico
             </button>
             <button
               className={`nav-link ${is("/preferences") ? "active" : ""}`}

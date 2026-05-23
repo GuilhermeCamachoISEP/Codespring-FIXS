@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { getOutfitHistory, getLikedOutfits, toggleOutfitLike } from "../services/api"
 import AppHeader from "../components/AppHeader"
+import "./Lookbook.css"
 
 function HeartIcon({ isLiked }) {
     return (
@@ -84,7 +85,19 @@ export default function Lookbook() {
         }
     }
 
-    const displayedOutfits = tab === "all" ? history : liked
+    function deduplicate(list) {
+        const seen = new Set();
+        return list.filter(h => {
+            // Usa os itens como chave para remover duplos no mesmo dia
+            const day = h.wornAt.split('T')[0];
+            const key = `${day}_${h.outfitItems}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    }
+
+    const displayedOutfits = deduplicate(tab === "all" ? history : liked)
 
     return (
         <div className="app-container">
@@ -92,7 +105,7 @@ export default function Lookbook() {
 
             <div className="wardrobe-top-row">
                 <div className="page-header" style={{ margin: 0 }}>
-                    <h1 className="page-title">Lookbook</h1>
+                    <h1 className="page-title">Histórico</h1>
                     <p className="page-subtitle">O teu histórico de outfits gerados</p>
                 </div>
             </div>
@@ -112,14 +125,14 @@ export default function Lookbook() {
                 </button>
             </div>
 
-            {loading && <div className="loading-state">A carregar o teu lookbook...</div>}
+            {loading && <div className="loading-state">A carregar o teu histórico...</div>}
 
             {!loading && displayedOutfits.length === 0 && (
                 <div className="empty-state">
                     <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📖</div>
                     {tab === "all" ? (
                         <>
-                            <p style={{ marginBottom: "0.5rem" }}>O teu lookbook está vazio.</p>
+                            <p style={{ marginBottom: "0.5rem" }}>O teu histórico está vazio.</p>
                             <p style={{ fontSize: "0.9rem" }}>Gera o teu primeiro outfit para começares a monitorizar.</p>
                             <button className="btn btn-primary" style={{ marginTop: "1rem" }} onClick={() => navigate("/outfits")}>
                                 Gerar Outfit
@@ -155,8 +168,31 @@ export default function Lookbook() {
                                 </div>
                                 <div className="lookbook-items-row">
                                     {items.map(item => (
-                                        <div key={item.id} className="lookbook-tag">
-                                            {item.color} {item.subcategory}
+                                        <div key={item.id} className="lookbook-item">
+                                            <div className="item-img-container">
+                                                {item.imageUrl ? (
+                                                    <img src={`http://localhost:8080${item.imageUrl}`} alt={item.subcategory} className="item-img" />
+                                                ) : (
+                                                    <div className="item-placeholder">👕</div>
+                                                )}
+                                            </div>
+                                            <div className="item-details">
+                                                <span className="item-category">{item.category}</span>
+                                                <span className="item-name">
+                                                    {item.color && item.color !== 'unknown' && (
+                                                        <span 
+                                                            className="item-color-indicator" 
+                                                            style={{ 
+                                                                background: item.color === 'white' || item.color === 'branco' ? '#fff' : 
+                                                                            item.color === 'black' || item.color === 'preto' ? '#000' : 
+                                                                            item.color 
+                                                            }}
+                                                            title={item.color}
+                                                        ></span>
+                                                    )}
+                                                    {item.subcategory}
+                                                </span>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

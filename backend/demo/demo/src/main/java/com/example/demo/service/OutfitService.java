@@ -46,7 +46,12 @@ public class OutfitService {
     }
 
     public List<OutfitSuggestion> generateOutfits(Long userId, WeatherData weather) {
+        System.out.println("[DEBUG-OUTFIT] generateOutfits called for userId=" + userId);
         List<WardrobeItem> items = wardrobeItemRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        System.out.println("[DEBUG-OUTFIT] Total items for user: " + items.size());
+        for(WardrobeItem item : items) {
+            System.out.println("[DEBUG-OUTFIT] Item ID=" + item.getId() + " | Category='" + item.getCategory() + "' | SubCat='" + item.getSubcategory() + "'");
+        }
         if (items.isEmpty()) return List.of();
 
         List<Long> reservedItemIds = reservationRepository.findByUserIdAndEventDate(userId, LocalDate.now())
@@ -55,8 +60,12 @@ public class OutfitService {
         List<WardrobeItem> availableItems = items.stream()
                 .filter(item -> !reservedItemIds.contains(item.getId()))
                 .toList();
+        System.out.println("[DEBUG-OUTFIT] Available items after removing " + reservedItemIds.size() + " reserved: " + availableItems.size());
         
-        if (availableItems.isEmpty()) return List.of();
+        if (availableItems.isEmpty()) {
+            System.out.println("[DEBUG-OUTFIT] No available items, returning empty.");
+            return List.of();
+        }
 
         String styleWeights = preferencesRepository.findByUserId(userId)
                 .map(UserPreferences::getStyleWeights)
@@ -66,12 +75,18 @@ public class OutfitService {
         List<OutfitHistory> likedHistory = historyService.getLikedOutfits(userId);
 
         String prompt = buildPrompt(availableItems, styleWeights, weather, null, recentHistory, likedHistory);
+        System.out.println("[DEBUG-OUTFIT] Calling Claude/Groq API...");
         String json = claudeService.generateOutfitsRaw(prompt);
+        System.out.println("[DEBUG-OUTFIT] AI Raw JSON: " + json);
         List<OutfitSuggestion> aiOutfits = parseOutfits(json, availableItems);
+        System.out.println("[DEBUG-OUTFIT] Parsed AI outfits size: " + aiOutfits.size());
         if (!aiOutfits.isEmpty()) {
             return aiOutfits;
         }
-        return generateFallbackOutfits(availableItems, styleWeights);
+        System.out.println("[DEBUG-OUTFIT] Calling fallback generator...");
+        List<OutfitSuggestion> fallback = generateFallbackOutfits(availableItems, styleWeights);
+        System.out.println("[DEBUG-OUTFIT] Fallback outfits size: " + fallback.size());
+        return fallback;
     }
 
     public List<OutfitSuggestion> generateOutfitsForEvent(Long userId, String eventName, WeatherData weather, LocalDate eventDate) {
@@ -261,8 +276,16 @@ public class OutfitService {
         List<WardrobeItem> shoes = byCategory(sorted, "shoes");
         List<WardrobeItem> accessories = byCategory(sorted, "accessories");
 
-        if (tops.isEmpty() && jackets.isEmpty()) return List.of();
-        if (bottoms.isEmpty() && shoes.isEmpty()) return List.of();
+        System.out.println("[DEBUG-FALLBACK] Categorized -> Tops:" + tops.size() + " Jackets:" + jackets.size() + " Bottoms:" + bottoms.size() + " Shoes:" + shoes.size());
+
+        if (tops.isEmpty() && jackets.isEmpty()) {
+            System.out.println("[DEBUG-FALLBACK] Missing upper parts. Returning empty.");
+            return List.of();
+        }
+        if (bottoms.isEmpty() && shoes.isEmpty()) {
+            System.out.println("[DEBUG-FALLBACK] Missing lower parts. Returning empty.");
+            return List.of();
+        }
 
         List<OutfitSuggestion> outfits = new ArrayList<>();
         int target = 1;

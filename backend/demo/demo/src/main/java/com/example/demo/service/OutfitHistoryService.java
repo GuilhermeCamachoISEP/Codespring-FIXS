@@ -34,14 +34,24 @@ public class OutfitHistoryService {
     }
 
     public void toggleLike(Long outfitId, Long userId) {
+        System.out.println("[DEBUG-LIKE] Toggling like for outfit=" + outfitId + " user=" + userId);
         OutfitHistory history = repository.findById(outfitId)
-                .orElseThrow(() -> new IllegalArgumentException("Outfit history not found"));
+                .orElseThrow(() -> {
+                    System.out.println("[DEBUG-LIKE] Outfit not found!");
+                    return new IllegalArgumentException("Outfit history not found");
+                });
         
         if (!history.getUserId().equals(userId)) {
+            System.out.println("[DEBUG-LIKE] User mismatch. Owner=" + history.getUserId() + " Requester=" + userId);
             throw new SecurityException("Not authorized to modify this outfit history");
         }
         
-        history.setIsLiked(!history.getIsLiked());
+        Boolean currentVal = history.getIsLiked();
+        System.out.println("[DEBUG-LIKE] Current isLiked value=" + currentVal);
+        boolean newVal = (currentVal == null) ? true : !currentVal;
+        
+        history.setIsLiked(newVal);
         repository.save(history);
+        System.out.println("[DEBUG-LIKE] Saved new isLiked=" + newVal);
     }
 }

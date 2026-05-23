@@ -11,8 +11,10 @@ import org.springframework.test.context.TestPropertySource;
 
 import java.util.List;
 
-@SpringBootTest
-@TestPropertySource(properties = { "spring.datasource.url=jdbc:h2:file:../../data/fashiondb" })
+@SpringBootTest(properties = {
+    "spring.datasource.url=jdbc:h2:file:./data/fashiondb",
+    "spring.datasource.driver-class-name=org.h2.Driver"
+})
 public class DebugOutfitTest {
 
     @Autowired
@@ -34,10 +36,14 @@ public class DebugOutfitTest {
             System.out.println("User: ID=" + u.get("ID") + " Name=" + u.get("NAME"));
         }
         
-        List<java.util.Map<String, Object>> res = jdbc.queryForList("SELECT * FROM event_reservation");
-        System.out.println("Total reservations: " + res.size());
-        for (java.util.Map<String, Object> r : res) {
-            System.out.println("Res: " + r);
+        int updatedBottoms = jdbc.update("UPDATE wardrobe_items SET category='bottoms' WHERE subcategory LIKE '%calças%' OR subcategory LIKE '%calções%'");
+        int updatedShoes = jdbc.update("UPDATE wardrobe_items SET category='shoes' WHERE subcategory LIKE '%Vans%' OR subcategory LIKE '%Air Force%' OR subcategory LIKE '%ténis%'");
+        System.out.println("Updated bottoms: " + updatedBottoms);
+        System.out.println("Updated shoes: " + updatedShoes);
+        List<java.util.Map<String, Object>> items = jdbc.queryForList("SELECT * FROM wardrobe_items WHERE user_id=2");
+        System.out.println("Total items for user 2: " + items.size());
+        for (java.util.Map<String, Object> i : items) {
+            System.out.println("Item: " + i);
         }
         System.out.println("====================================================");
     }

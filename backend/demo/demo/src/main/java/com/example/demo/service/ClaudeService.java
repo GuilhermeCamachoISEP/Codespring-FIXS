@@ -14,6 +14,11 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Base64;
 import java.util.List;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.stream.Stream;
+import jakarta.annotation.PostConstruct;
 
 @Service
 public class ClaudeService {
@@ -30,6 +35,40 @@ public class ClaudeService {
 
     public ClaudeService(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
+    }
+
+    @PostConstruct
+    public void init() {
+        if (apiKey == null || apiKey.isBlank() || "${GROQ_API_KEY:}".equals(apiKey) || apiKey.startsWith("$")) {
+            System.out.println("[DEBUG-OUTFIT] init() started. Searching for .env file manually...");
+            String[] possiblePaths = {
+                ".env",
+                "backend/demo/demo/.env",
+                "demo/demo/.env",
+                "../../.env",
+                "../../../.env"
+            };
+            
+            for (String p : possiblePaths) {
+                Path path = Paths.get(p);
+                if (Files.exists(path)) {
+                    System.out.println("[DEBUG-OUTFIT] Found .env at: " + path.toAbsolutePath());
+                    try {
+                        List<String> lines = Files.readAllLines(path);
+                        for (String line : lines) {
+                            if (line.startsWith("GROQ_API_KEY=")) {
+                                this.apiKey = line.substring("GROQ_API_KEY=".length()).trim();
+                                System.out.println("[DEBUG-OUTFIT] HARD LOADED API KEY: " + this.apiKey.substring(0, 5) + "...");
+                                return;
+                            }
+                        }
+                    } catch (Exception e) {
+                        System.out.println("[DEBUG-OUTFIT] Failed to read " + path + ": " + e.getMessage());
+                    }
+                }
+            }
+            System.out.println("[DEBUG-OUTFIT] Could not find .env in any of the paths!");
+        }
     }
 
     public boolean isConfigured() {
@@ -129,7 +168,10 @@ public class ClaudeService {
 
     public String generateOutfitsRaw(String prompt) {
         try {
-            if (!isConfigured()) return "[]";
+            if (!isConfigured()) {
+                System.out.println("[DEBUG-OUTFIT] ClaudeService is NOT configured (apiKey is missing or invalid)!");
+                return "[]";
+            }
 
             String body = buildTextRequestBody(prompt, 0.4, 2048);
 
@@ -143,7 +185,7 @@ public class ClaudeService {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() != 200) {
-                System.err.println("Groq outfit API error " + response.statusCode() + ": " + response.body());
+                System.out.println("[DEBUG-OUTFIT] Groq outfit API error " + response.statusCode() + ": " + response.body());
                 return "[]";
             }
 
@@ -155,7 +197,8 @@ public class ClaudeService {
             return text;
 
         } catch (Exception e) {
-            System.err.println("Groq outfit generation failed: " + e.getMessage());
+            System.out.println("[DEBUG-OUTFIT] Groq outfit generation failed with exception: " + e.getMessage());
+            e.printStackTrace(System.out);
             return "[]";
         }
     }

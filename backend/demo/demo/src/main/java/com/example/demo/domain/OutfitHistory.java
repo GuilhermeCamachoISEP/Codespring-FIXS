@@ -21,6 +21,7 @@ public class OutfitHistory {
     private LocalDateTime wornAt;
 
     @Column(nullable = false)
+    @com.fasterxml.jackson.annotation.JsonProperty("isLiked")
     private Boolean isLiked = false;
 
     public OutfitHistory() {
