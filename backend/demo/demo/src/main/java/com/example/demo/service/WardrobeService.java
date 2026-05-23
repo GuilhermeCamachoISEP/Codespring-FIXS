@@ -35,7 +35,7 @@ public class WardrobeService {
         this.objectMapper = objectMapper;
     }
 
-    public WardrobeItem uploadAndClassify(Long userId, MultipartFile file) throws IOException {
+    public WardrobeItem uploadAndClassify(Long userId, MultipartFile file, String categoryHint) throws IOException {
         ensureUploadDirExists();
 
         String originalName = file.getOriginalFilename();
@@ -49,7 +49,7 @@ public class WardrobeService {
 
         String mediaType = resolveMediaType(extension);
         byte[] imageBytes = file.getBytes();
-        ClothingMetadata meta = claudeService.classifyClothing(imageBytes, mediaType);
+        ClothingMetadata meta = claudeService.classifyClothing(imageBytes, mediaType, categoryHint);
 
         WardrobeItem item = WardrobeItem.builder()
                 .userId(userId)

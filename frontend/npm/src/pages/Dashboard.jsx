@@ -52,19 +52,19 @@ export default function Dashboard() {
                         <div className="dash-card-icon">📷</div>
                         <div className="dash-card-body">
                             <h3>Adicionar roupa</h3>
-                            <p>Claude AI classifica automaticamente</p>
+                            <p>Gemini AI classifica automaticamente</p>
                         </div>
                         <span className="dash-arrow">→</span>
                     </div>
 
-                    {/* Outfit of the day — sprint 5 */}
-                    <div className="dash-card dash-card-disabled">
+                    {/* Outfits card */}
+                    <div className="dash-card dash-card-accent" onClick={() => navigate("/outfits")}>
                         <div className="dash-card-icon">✨</div>
                         <div className="dash-card-body">
-                            <h3>Outfit do dia</h3>
-                            <p>Em breve — Sprint 5</p>
+                            <h3>Os meus outfits</h3>
+                            <p>Gemini AI combina as tuas peças</p>
                         </div>
-                        <span className="dash-badge">SOON</span>
+                        <span className="dash-arrow">→</span>
                     </div>
 
                     {/* Weather — sprint 4 */}

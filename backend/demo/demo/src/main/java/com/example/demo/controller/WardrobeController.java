@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(originPatterns = {"http://localhost:*", "http://127.0.0.1:*"})
 public class WardrobeController {
 
     @Value("${app.upload.dir}")
@@ -31,13 +31,14 @@ public class WardrobeController {
         this.jwtService = jwtService;
     }
 
-    // Upload + Claude Vision classification
+    // Upload + AI vision classification
     @PostMapping(value = "/wardrobe/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<WardrobeItem> upload(
             @RequestHeader("Authorization") String authHeader,
-            @RequestParam("file") MultipartFile file) throws IOException {
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "categoryHint", required = false) String categoryHint) throws IOException {
         Long userId = extractUserId(authHeader);
-        WardrobeItem item = wardrobeService.uploadAndClassify(userId, file);
+        WardrobeItem item = wardrobeService.uploadAndClassify(userId, file, categoryHint);
         return ResponseEntity.ok(item);
     }
 

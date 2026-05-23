@@ -3,26 +3,18 @@ import { useNavigate } from "react-router-dom"
 import { uploadClothingItem } from "../../services/api"
 
 const CATEGORIES = [
-    { id: "tops", label: "Tops", icon: "TS", hint: "t-shirts, hoodies, camisas, sweatshirts" },
-    { id: "bottoms", label: "Calcas", icon: "JE", hint: "jeans, cargos, shorts, calcas" },
+    { id: "tops", label: "Tops", icon: "TS", hint: "t-shirts, hoodies, camisas" },
+    { id: "bottoms", label: "Calcas", icon: "JE", hint: "jeans, cargos, shorts" },
     { id: "shoes", label: "Sapatos", icon: "SN", hint: "sneakers, botas, loafers" },
-    { id: "jackets", label: "Casacos", icon: "JK", hint: "bomber, trench, casaco, hoodie zip" },
-    { id: "accessories", label: "Acessorios", icon: "AC", hint: "cintos, chapeus, carteiras, joias" },
+    { id: "jackets", label: "Casacos", icon: "JK", hint: "bomber, trench, hoodie zip" },
+    { id: "accessories", label: "Acessorios", icon: "AC", hint: "cintos, chapeus, carteiras" },
 ]
 
-function parseTags(tagsJson) {
-    try {
-        return JSON.parse(tagsJson || "[]")
-    } catch {
-        return []
-    }
-}
-
-export default function WardrobeUpload() {
+export default function OnboardingWardrobe() {
     const [activeCategory, setActiveCategory] = useState("tops")
     const [queue, setQueue] = useState([])
     const [uploading, setUploading] = useState(false)
-    const [results, setResults] = useState([])
+    const [uploaded, setUploaded] = useState([])
     const [error, setError] = useState("")
     const fileInputRef = useRef(null)
     const navigate = useNavigate()
@@ -51,7 +43,7 @@ export default function WardrobeUpload() {
         for (const item of queue) {
             try {
                 const result = await uploadClothingItem(item.file, item.category)
-                setResults(prev => [result, ...prev])
+                setUploaded(prev => [result, ...prev])
             } catch (err) {
                 failed.push(item)
                 setError("A AI nao conseguiu classificar uma ou mais pecas. Confirma a GEMINI_API_KEY no backend.")
@@ -62,11 +54,11 @@ export default function WardrobeUpload() {
     }
 
     return (
-        <div className="wardrobe-upload-container">
-            <div className="wardrobe-header">
-                <button className="btn-ghost" onClick={() => navigate("/wardrobe")}>Voltar ao armario</button>
-                <h1>Adicionar roupa</h1>
-                <p>A AI identifica cada peca automaticamente e usa a categoria como pista.</p>
+        <div className="onboarding-container">
+            <div className="onboarding-header">
+                <div className="step-indicator">Passo 2 de 2</div>
+                <h1>Adiciona o teu armario</h1>
+                <p>Escolhe a categoria, adiciona fotos e a AI classifica cada peca.</p>
             </div>
 
             <div className="category-tabs">
@@ -94,8 +86,8 @@ export default function WardrobeUpload() {
                     onChange={handleFileSelect}
                 />
                 <div className="drop-icon">IMG</div>
-                <p>Clica para adicionar fotos</p>
-                <p className="drop-sub">JPG, PNG, WEBP ate 10MB</p>
+                <p>Clica para adicionar fotos das tuas roupas</p>
+                <p className="drop-sub">JPG, PNG, WEBP ate 10MB. Podes adicionar varias.</p>
             </div>
 
             {queue.length > 0 && (
@@ -104,7 +96,7 @@ export default function WardrobeUpload() {
                         <span>Prontos para enviar ({queue.length})</span>
                         {!uploading && (
                             <button className="btn-primary btn-upload-all" onClick={uploadAll}>
-                                Enviar e classificar com AI
+                                Classificar com AI
                             </button>
                         )}
                         {uploading && <span className="uploading-text">A classificar com AI...</span>}
@@ -127,33 +119,36 @@ export default function WardrobeUpload() {
 
             {error && <p className="error">{error}</p>}
 
-            {results.length > 0 && (
+            {uploaded.length > 0 && (
                 <div className="upload-section">
                     <div className="section-title">
-                        <span>Classificados por AI ({results.length})</span>
-                        <button className="btn-outline" onClick={() => navigate("/wardrobe")}>
-                            Ver armario
-                        </button>
+                        <span>Classificados ({uploaded.length})</span>
                     </div>
                     <div className="item-grid">
-                        {results.map(item => (
+                        {uploaded.map(item => (
                             <div key={item.id} className="item-card classified">
                                 <img src={`http://localhost:8080${item.imageUrl}`} alt={item.subcategory} />
                                 <div className="item-meta">
                                     <span className="item-name">{item.color} {item.subcategory}</span>
-                                    <div className="item-tags">
-                                        {item.category && <span className="tag tag-category">{item.category}</span>}
-                                        {item.fit && <span className="tag tag-fit">{item.fit}</span>}
-                                        {parseTags(item.styleTags).slice(0, 2).map(tag => (
-                                            <span key={tag} className="tag">{tag}</span>
-                                        ))}
-                                    </div>
+                                    <span className="tag tag-category">{item.category}</span>
                                 </div>
                             </div>
                         ))}
                     </div>
                 </div>
             )}
+
+            <div style={{ marginTop: "2rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                {uploaded.length > 0 ? (
+                    <button className="btn-primary btn-next" onClick={() => navigate("/dashboard")}>
+                        Entrar na app
+                    </button>
+                ) : (
+                    <button className="btn-primary btn-next" disabled>
+                        Adiciona pelo menos uma peca para continuar
+                    </button>
+                )}
+            </div>
         </div>
     )
 }

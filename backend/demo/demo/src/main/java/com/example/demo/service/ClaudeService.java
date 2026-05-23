@@ -3,8 +3,10 @@ package com.example.demo.service;
 import com.example.demo.dto.ClothingMetadata;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -16,12 +18,12 @@ import java.util.List;
 @Service
 public class ClaudeService {
 
-    private static final String API_URL = "https://api.anthropic.com/v1/messages";
+    private static final String API_URL = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s";
 
-    @Value("${anthropic.api.key}")
+    @Value("${gemini.api.key}")
     private String apiKey;
 
-    @Value("${anthropic.model}")
+    @Value("${gemini.model}")
     private String model;
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
@@ -31,15 +33,32 @@ public class ClaudeService {
         this.objectMapper = objectMapper;
     }
 
-    public ClothingMetadata classifyClothing(byte[] imageBytes, String mediaType) {
+    public boolean isConfigured() {
+        return apiKey != null
+                && !apiKey.contains("...")
+                && !"changeme".equals(apiKey)
+                && !apiKey.contains("cola-a-tua-chave")
+                && apiKey.length() > 24;
+    }
+
+    public String getModel() {
+        return model;
+    }
+
+    public ClothingMetadata classifyClothing(byte[] imageBytes, String mediaType, String categoryHint) {
+        if (!isConfigured()) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "AI API key missing. Define GEMINI_API_KEY before starting the backend."
+            );
+        }
+
         try {
             String base64 = Base64.getEncoder().encodeToString(imageBytes);
-            String body = buildRequestBody(base64, mediaType);
+            String body = buildRequestBody(base64, mediaType, categoryHint);
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(API_URL))
-                    .header("x-api-key", apiKey)
-                    .header("anthropic-version", "2023-06-01")
+                    .uri(URI.create(geminiUrl()))
                     .header("content-type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
@@ -47,67 +66,163 @@ public class ClaudeService {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() != 200) {
-                System.err.println("Claude API error " + response.statusCode() + ": " + response.body());
-                return fallbackMetadata();
+                System.err.println("Gemini API error " + response.statusCode() + ": " + response.body());
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "AI classification failed: Gemini returned HTTP " + response.statusCode()
+                );
             }
 
-            JsonNode root = objectMapper.readTree(response.body());
-            String text = root.path("content").get(0).path("text").asText();
+            String text = extractGeminiText(response.body());
             // Strip markdown code fences if present
             text = text.replaceAll("```json\\s*", "").replaceAll("```\\s*", "").trim();
-            return objectMapper.readValue(text, ClothingMetadata.class);
+            ClothingMetadata metadata = objectMapper.readValue(text, ClothingMetadata.class);
+            validateMetadata(metadata);
+            return metadata;
 
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (Exception e) {
-            System.err.println("Claude classification failed: " + e.getMessage());
-            return fallbackMetadata();
+            System.err.println("Gemini classification failed: " + e.getMessage());
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "AI classification failed. Check backend logs for details."
+            );
         }
     }
 
-    private String buildRequestBody(String base64, String mediaType) throws Exception {
-        var imageSource = objectMapper.createObjectNode()
-                .put("type", "base64")
-                .put("media_type", mediaType)
+    private String buildRequestBody(String base64, String mediaType, String categoryHint) throws Exception {
+        var imageData = objectMapper.createObjectNode()
+                .put("mimeType", mediaType)
                 .put("data", base64);
 
-        var imageContent = objectMapper.createObjectNode()
-                .put("type", "image");
-        imageContent.set("source", imageSource);
+        var imageContent = objectMapper.createObjectNode();
+        imageContent.set("inlineData", imageData);
 
         var textContent = objectMapper.createObjectNode()
-                .put("type", "text")
-                .put("text", CLASSIFICATION_PROMPT);
+                .put("text", CLASSIFICATION_PROMPT.formatted(normalizeCategory(categoryHint)));
 
-        var messagesArray = objectMapper.createArrayNode();
-        var userMessage = objectMapper.createObjectNode().put("role", "user");
-        var contentArray = objectMapper.createArrayNode();
-        contentArray.add(imageContent);
-        contentArray.add(textContent);
-        userMessage.set("content", contentArray);
-        messagesArray.add(userMessage);
+        var partsArray = objectMapper.createArrayNode();
+        partsArray.add(textContent);
+        partsArray.add(imageContent);
 
-        var requestBody = objectMapper.createObjectNode()
-                .put("model", model)
-                .put("max_tokens", 512);
-        requestBody.set("messages", messagesArray);
+        var content = objectMapper.createObjectNode()
+                .put("role", "user");
+        content.set("parts", partsArray);
+
+        var contentsArray = objectMapper.createArrayNode();
+        contentsArray.add(content);
+
+        var generationConfig = objectMapper.createObjectNode()
+                .put("temperature", 0.1)
+                .put("maxOutputTokens", 512)
+                .put("responseMimeType", "application/json");
+
+        var requestBody = objectMapper.createObjectNode();
+        requestBody.set("contents", contentsArray);
+        requestBody.set("generationConfig", generationConfig);
 
         return objectMapper.writeValueAsString(requestBody);
     }
 
-    private ClothingMetadata fallbackMetadata() {
-        ClothingMetadata m = new ClothingMetadata();
-        m.setCategory("tops");
-        m.setSubcategory("item");
-        m.setColor("unknown");
-        m.setFit("regular");
-        m.setMaterial("unknown");
-        m.setBrand("unknown");
-        m.setSeason(List.of("spring", "summer", "fall", "winter"));
-        m.setStyle_tags(List.of("casual"));
-        return m;
+    public String generateOutfitsRaw(String prompt) {
+        try {
+            if (!isConfigured()) return "[]";
+
+            var textContent = objectMapper.createObjectNode().put("text", prompt);
+
+            var partsArray = objectMapper.createArrayNode();
+            partsArray.add(textContent);
+
+            var content = objectMapper.createObjectNode().put("role", "user");
+            content.set("parts", partsArray);
+
+            var contentsArray = objectMapper.createArrayNode();
+            contentsArray.add(content);
+
+            var generationConfig = objectMapper.createObjectNode()
+                    .put("temperature", 0.4)
+                    .put("maxOutputTokens", 1024)
+                    .put("responseMimeType", "application/json");
+
+            var requestBody = objectMapper.createObjectNode();
+            requestBody.set("contents", contentsArray);
+            requestBody.set("generationConfig", generationConfig);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(geminiUrl()))
+                    .header("content-type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() != 200) {
+                System.err.println("Gemini outfit API error " + response.statusCode() + ": " + response.body());
+                return "[]";
+            }
+
+            String text = extractGeminiText(response.body());
+            text = text.replaceAll("```json\\s*", "").replaceAll("```\\s*", "").trim();
+            return text;
+
+        } catch (Exception e) {
+            System.err.println("Gemini outfit generation failed: " + e.getMessage());
+            return "[]";
+        }
+    }
+
+    private String geminiUrl() {
+        return API_URL.formatted(model, apiKey);
+    }
+
+    private String extractGeminiText(String responseBody) throws Exception {
+        JsonNode root = objectMapper.readTree(responseBody);
+        JsonNode parts = root.path("candidates").path(0).path("content").path("parts");
+        if (!parts.isArray() || parts.isEmpty()) {
+            throw new IllegalArgumentException("Gemini response did not include text parts");
+        }
+        return parts.get(0).path("text").asText();
+    }
+
+    private String normalizeCategory(String categoryHint) {
+        if (categoryHint == null) return "tops";
+        return switch (categoryHint) {
+            case "tops", "bottoms", "shoes", "jackets", "accessories" -> categoryHint;
+            default -> "tops";
+        };
+    }
+
+    private void validateMetadata(ClothingMetadata metadata) {
+        if (metadata.getCategory() == null || metadata.getCategory().isBlank()) {
+            throw new IllegalArgumentException("Missing clothing category");
+        }
+        if (metadata.getSubcategory() == null || metadata.getSubcategory().isBlank()) {
+            throw new IllegalArgumentException("Missing clothing subcategory");
+        }
+        if (metadata.getColor() == null || metadata.getColor().isBlank()) {
+            metadata.setColor("unknown");
+        }
+        if (metadata.getFit() == null || metadata.getFit().isBlank()) {
+            metadata.setFit("regular");
+        }
+        if (metadata.getMaterial() == null || metadata.getMaterial().isBlank()) {
+            metadata.setMaterial("unknown");
+        }
+        if (metadata.getBrand() == null || metadata.getBrand().isBlank()) {
+            metadata.setBrand("unknown");
+        }
+        if (metadata.getSeason() == null) {
+            metadata.setSeason(List.of());
+        }
+        if (metadata.getStyle_tags() == null) {
+            metadata.setStyle_tags(List.of());
+        }
     }
 
     private static final String CLASSIFICATION_PROMPT = """
             You are a fashion classifier. Analyze this clothing item and respond ONLY with valid JSON, no markdown:
+            The user selected this likely category: "%s". Prefer it unless the image clearly proves another category.
             {
               "category": "tops|bottoms|shoes|jackets|accessories",
               "subcategory": "specific item name (hoodie, cargo pants, sneakers, etc.)",
