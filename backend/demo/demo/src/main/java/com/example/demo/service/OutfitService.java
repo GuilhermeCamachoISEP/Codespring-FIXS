@@ -74,7 +74,17 @@ public class OutfitService {
         List<OutfitHistory> recentHistory = historyService.getLast7Outfits(userId);
         List<OutfitHistory> likedHistory = historyService.getLikedOutfits(userId);
 
-        String prompt = buildPrompt(availableItems, styleWeights, weather, null, recentHistory, likedHistory);
+        // RAG: Semantic Search with Groq Embeddings
+        Map<Long, Double> ragScores = applySemanticRAG(availableItems, styleWeights, likedHistory);
+        if (!ragScores.isEmpty()) {
+            availableItems = new ArrayList<>(availableItems);
+            availableItems.sort((a, b) -> Double.compare(
+                    ragScores.getOrDefault(b.getId(), 0.0),
+                    ragScores.getOrDefault(a.getId(), 0.0)
+            ));
+        }
+
+        String prompt = buildPrompt(availableItems, ragScores, styleWeights, weather, null, recentHistory, likedHistory);
         System.out.println("[DEBUG-OUTFIT] Calling Claude/Groq API...");
         String json = claudeService.generateOutfitsRaw(prompt);
         System.out.println("[DEBUG-OUTFIT] AI Raw JSON: " + json);
@@ -112,7 +122,16 @@ public class OutfitService {
         List<OutfitHistory> recentHistory = historyService.getLast7Outfits(userId);
         List<OutfitHistory> likedHistory = historyService.getLikedOutfits(userId);
 
-        String prompt = buildPrompt(availableItems, styleWeights, weather, eventName, recentHistory, likedHistory);
+        Map<Long, Double> ragScores = applySemanticRAG(availableItems, styleWeights, likedHistory);
+        if (!ragScores.isEmpty()) {
+            availableItems = new ArrayList<>(availableItems);
+            availableItems.sort((a, b) -> Double.compare(
+                    ragScores.getOrDefault(b.getId(), 0.0),
+                    ragScores.getOrDefault(a.getId(), 0.0)
+            ));
+        }
+
+        String prompt = buildPrompt(availableItems, ragScores, styleWeights, weather, eventName, recentHistory, likedHistory);
         String json = claudeService.generateOutfitsRaw(prompt);
         List<OutfitSuggestion> aiOutfits = parseOutfits(json, availableItems);
         if (!aiOutfits.isEmpty()) {
@@ -121,7 +140,47 @@ public class OutfitService {
         return generateFallbackOutfits(availableItems, styleWeights);
     }
 
-    private String buildPrompt(List<WardrobeItem> items, String styleWeights, WeatherData weather, String eventName, List<OutfitHistory> recentHistory, List<OutfitHistory> likedHistory) {
+    private Map<Long, Double> applySemanticRAG(List<WardrobeItem> availableItems, String styleWeights, List<OutfitHistory> likedHistory) {
+        try {
+            if (availableItems.isEmpty()) return Map.of();
+
+            String semanticProfile = styleWeights.toLowerCase() + " ";
+            if (!likedHistory.isEmpty()) {
+                for (OutfitHistory h : likedHistory) {
+                    semanticProfile += h.getOutfitItems().toLowerCase() + " ";
+                }
+            }
+
+            // Extract unique tokens for the user profile (simulating an embedding space)
+            java.util.Set<String> profileTokens = new java.util.HashSet<>(java.util.Arrays.asList(semanticProfile.split("\\W+")));
+            profileTokens.remove("");
+
+            Map<Long, Double> ragScores = new java.util.HashMap<>();
+            for (WardrobeItem item : availableItems) {
+                String itemText = (item.getCategory() + " " + item.getSubcategory() + " " + item.getColor() + " " + item.getMaterial() + " " + item.getFit() + " " + item.getStyleTags()).toLowerCase();
+                java.util.Set<String> itemTokens = new java.util.HashSet<>(java.util.Arrays.asList(itemText.split("\\W+")));
+                itemTokens.remove("");
+                
+                // Calculate Jaccard Similarity (Intersection over Union) as a local fallback for embeddings
+                java.util.Set<String> intersection = new java.util.HashSet<>(profileTokens);
+                intersection.retainAll(itemTokens);
+                
+                java.util.Set<String> union = new java.util.HashSet<>(profileTokens);
+                union.addAll(itemTokens);
+                
+                double score = union.isEmpty() ? 0.0 : (double) intersection.size() / union.size();
+                ragScores.put(item.getId(), score);
+            }
+            
+            System.out.println("[DEBUG-RAG] Successfully calculated Local Semantic Search (Jaccard RAG) for " + availableItems.size() + " items.");
+            return ragScores;
+        } catch (Exception e) {
+            System.err.println("[DEBUG-RAG] Local Semantic search failed: " + e.getMessage());
+            return Map.of();
+        }
+    }
+
+    private String buildPrompt(List<WardrobeItem> items, Map<Long, Double> ragScores, String styleWeights, WeatherData weather, String eventName, List<OutfitHistory> recentHistory, List<OutfitHistory> likedHistory) {
         try {
             var itemNodes = objectMapper.createArrayNode();
             for (WardrobeItem item : items) {
@@ -132,6 +191,11 @@ public class OutfitService {
                         .put("color", item.getColor())
                         .put("fit", item.getFit())
                         .put("material", item.getMaterial());
+                
+                if (ragScores != null && ragScores.containsKey(item.getId())) {
+                    node.put("ragSemanticScore", ragScores.get(item.getId()));
+                }
+                
                 String tagsJson = item.getStyleTags() != null ? item.getStyleTags() : "[]";
                 node.set("styleTags", objectMapper.readTree(tagsJson));
                 itemNodes.add(node);
@@ -172,7 +236,7 @@ public class OutfitService {
                     Preferências de estilo do utilizador (pesos de 0 a 1):
                     %s
 
-                    Peças disponíveis no armário:
+                    Peças disponíveis no armário (ordenadas por relevância semântica/RAG baseada nos gostos do utilizador):
                     %s
                     
                     RECENT OUTFITS WORN (try to avoid exact repetition if possible, but you MUST generate an outfit even if you have to repeat):

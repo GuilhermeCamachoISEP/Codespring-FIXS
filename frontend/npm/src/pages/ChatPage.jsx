@@ -1,11 +1,15 @@
 import { useState, useRef, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import { sendChatMessage } from "../services/api"
 import { useAuth } from "../context/AuthContext"
+import AppHeader from "../components/AppHeader"
+import { ArrowLeft } from "../components/Icons"
 
 export default function ChatPage() {
     const { user } = useAuth()
+    const navigate = useNavigate()
     const [messages, setMessages] = useState([
-        { role: "model", content: "Olá! Sou o teu assistente de armário. Diz-me que peças novas compraste ou queres adicionar ao teu armário virtual (ex: 'adicionei uns ténis brancos da Nike') e eu guardo tudo por ti!" }
+        { role: "model", content: "Olá! Diz-me que peças novas queres adicionar ao teu armário virtual (ex: 'adicionei uns ténis brancos da Nike e uma t-shirt preta básica')." }
     ])
     const [input, setInput] = useState("")
     const [loading, setLoading] = useState(false)
@@ -53,13 +57,19 @@ export default function ChatPage() {
     }
 
     return (
-        <div className="page" style={{ display: 'flex', flexDirection: 'column', height: '100vh', padding: '0', maxWidth: '600px', margin: '0 auto' }}>
-            <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <a href="/dashboard" style={{ textDecoration: 'none', color: 'var(--text)' }}>← Voltar</a>
-                <h2 style={{ margin: 0 }}>AI Stylist</h2>
+        <div className="app-container">
+            <AppHeader />
+            
+            <button className="back-link" onClick={() => navigate("/wardrobe")}>
+                <ArrowLeft /> Voltar ao Armário
+            </button>
+
+            <div className="page-header" style={{ marginBottom: "10px" }}>
+                <h1 className="page-title">Adição Rápida (Por Texto)</h1>
+                <p className="page-subtitle">A IA extrai a categoria, cor e o nome das roupas que escreveres</p>
             </div>
             
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 0', display: 'flex', flexDirection: 'column', gap: '15px', minHeight: '50vh' }}>
                 {messages.map((msg, i) => {
                     const isUser = msg.role === 'user';
                     // The AI might return JSON updates, let's try to hide them if they exist
@@ -91,12 +101,12 @@ export default function ChatPage() {
                 <div ref={messagesEndRef} />
             </div>
 
-            <form onSubmit={handleSend} style={{ padding: '20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '10px' }}>
+            <form onSubmit={handleSend} style={{ paddingTop: '15px', borderTop: '1px solid var(--border)', display: 'flex', gap: '10px', marginTop: 'auto' }}>
                 <input 
                     type="text" 
                     value={input}
                     onChange={e => setInput(e.target.value)}
-                    placeholder="Ex: Preciso de roupa para um date..."
+                    placeholder="Ex: Adiciona uma t-shirt branca da Nike..."
                     style={{ flex: 1, padding: '14px', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'var(--surface)', color: 'var(--text)' }}
                 />
                 <button type="submit" disabled={loading || !input.trim()} style={{ padding: '0 20px', height: 'auto', display: 'flex', alignItems: 'center' }}>
