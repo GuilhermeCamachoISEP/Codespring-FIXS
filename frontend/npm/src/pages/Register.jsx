@@ -31,7 +31,7 @@ export default function Register() {
     return (
         <div className="auth-container">
             <div className="auth-card">
-                <div className="auth-logo">Gaveta</div>
+                <div className="auth-logo">Gaveta.</div>
                 <h2>Criar conta</h2>
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">

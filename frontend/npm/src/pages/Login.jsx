@@ -29,7 +29,7 @@ export default function Login() {
     return (
         <div className="auth-container">
             <div className="auth-card">
-                <div className="auth-logo">STYLIST AI</div>
+                <div className="auth-logo">Gaveta.</div>
                 <h2>Entrar</h2>
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
