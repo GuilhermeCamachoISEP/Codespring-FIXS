@@ -36,7 +36,7 @@ export default function InspirationPage() {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "20px" }}>
-        <Images style={{ width: 20, height: 20, color: "var(--color-primary)" }} />
+        <Images style={{ width: 20, height: 20, color: "var(--color-accent)" }} />
         <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600 }}>
           Looks do teu estilo
         </h2>
@@ -60,7 +60,7 @@ export default function InspirationPage() {
             Adiciona a <code>UNSPLASH_ACCESS_KEY</code> no ficheiro <code>.env</code> do backend.<br />
             Chave gratuita em{" "}
             <a href="https://unsplash.com/developers" target="_blank" rel="noreferrer"
-               style={{ color: "var(--color-primary)" }}>
+               style={{ color: "var(--color-accent)" }}>
               unsplash.com/developers
             </a>
           </p>

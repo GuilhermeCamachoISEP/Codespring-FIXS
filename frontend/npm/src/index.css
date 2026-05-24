@@ -267,28 +267,27 @@ a { text-decoration: none; color: inherit; }
   gap: 1.25rem;
 }
 
+/* ─── Outfit card shell ───────────────────────────────────────── */
 .outfit-card {
   background: var(--color-surface);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
-  transition: all var(--transition);
+  transition: box-shadow var(--transition);
+  max-width: 520px;
+  margin: 0 auto;
 }
 
 .outfit-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.15);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.13);
 }
-
 [data-theme="dark"] .outfit-card:hover {
-  box-shadow: 0 16px 48px rgba(0,0,0,0.55);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
 }
 
-.outfit-card-header { padding: 1.1rem 1.1rem 0; }
-
-.outfit-card-name { font-size: 1rem; font-weight: 600; margin-bottom: 0.2rem; }
-
-.outfit-card-desc { font-size: 0.8rem; color: var(--color-text-secondary); line-height: 1.4; }
+.outfit-card-header { padding: 1.1rem 1.2rem 0.6rem; }
+.outfit-card-name   { font-size: 1rem; font-weight: 700; margin-bottom: 0.2rem; }
+.outfit-card-desc   { font-size: 0.8rem; color: var(--color-text-secondary); line-height: 1.4; }
 
 .outfit-weather-note {
   display: flex;
@@ -299,31 +298,82 @@ a { text-decoration: none; color: inherit; }
   margin-top: 0.35rem;
 }
 
-.outfit-card-items {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.85rem 1.1rem 1.1rem;
-  overflow-x: auto;
+/* ─── Flat-lay grid ───────────────────────────────────────────── */
+.flat-lay-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto minmax(120px, 1fr) auto;
+  grid-template-areas:
+    "top     jacket"
+    "bottoms access"
+    "bottoms shoes";
+  gap: 10px;
+  padding: 10px 14px 16px;
+  background: var(--color-bg);
 }
 
-.outfit-card-item { flex-shrink: 0; width: calc(33% - 0.35rem); min-width: 72px; }
+/* Slot assignments */
+.flat-lay-top     { grid-area: top; }
+.flat-lay-jacket  { grid-area: jacket; }
+.flat-lay-bottoms { grid-area: bottoms; }
+.flat-lay-access  { grid-area: access; }
+.flat-lay-shoes   { grid-area: shoes; }
 
-.outfit-card-item img {
-  width: 100%;
-  aspect-ratio: 3/4;
-  object-fit: cover;
-  border-radius: 10px;
+/* Item card */
+.flat-lay-item {
+  background: var(--color-surface);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.07);
   border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.flat-lay-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
 }
 
-.outfit-card-item-label {
-  font-size: 0.68rem;
+/* Images — different aspect ratios per slot */
+.flat-lay-item img {
+  width: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+}
+.flat-lay-top    img,
+.flat-lay-jacket img  { aspect-ratio: 4/3; }
+.flat-lay-bottoms img { aspect-ratio: 2/3; }
+.flat-lay-access  img { aspect-ratio: 4/3; }
+.flat-lay-shoes   img { aspect-ratio: 4/3; }
+
+/* Bottoms fill the row height so left & right columns are equal */
+.flat-lay-bottoms {
+  height: 100%;
+}
+.flat-lay-bottoms img {
+  height: 100%;
+  max-height: 340px;
+  aspect-ratio: unset;
+}
+
+/* Label strip */
+.flat-lay-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px 7px;
+  flex-shrink: 0;
+}
+.flat-lay-label-name {
+  font-size: 0.65rem;
   color: var(--color-text-secondary);
-  margin-top: 0.25rem;
+  text-transform: capitalize;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  text-transform: capitalize;
+  flex: 1;
 }
 
 /* ─── Buttons ────────────────────────────────────────────────── */

@@ -507,30 +507,59 @@ function WeatherBar({ weather, advisory }) {
   )
 }
 
-function OutfitCard({ outfit }) {
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.15
-      }
-    }
-  };
+// Slot priority per category: which grid area each maps to
+const CATEGORY_SLOT = {
+  tops:        "top",
+  jackets:     "jacket",
+  bottoms:     "bottoms",
+  accessories: "access",
+  shoes:       "shoes",
+}
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { 
-      opacity: 1, 
-      y: 0,
-      transition: { type: "spring", stiffness: 300, damping: 24 }
-    }
-  };
+function imgSrc(item) {
+  return item.imageUrl?.startsWith("http")
+    ? item.imageUrl
+    : `http://localhost:8080${item.imageUrl}`
+}
+
+function FlatLayItem({ item, slot, delay = 0 }) {
+  return (
+    <motion.div
+      className={`flat-lay-item flat-lay-${slot}`}
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 280, damping: 26, delay }}
+    >
+      <img src={imgSrc(item)} alt={item.subcategory} loading="lazy" />
+      <div className="flat-lay-label">
+        <span className="flat-lay-label-name">{item.color} {item.subcategory}</span>
+        <span className="tag tag-category">{item.category}</span>
+      </div>
+    </motion.div>
+  )
+}
+
+function OutfitCard({ outfit }) {
+  // Take first item per category slot
+  const slots = {}
+  const unslotted = []
+  for (const item of outfit.items) {
+    const slot = CATEGORY_SLOT[item.category]
+    if (slot && !slots[slot]) slots[slot] = item
+    else if (!slot) unslotted.push(item)
+  }
+
+  // If no dedicated top but has jacket, promote jacket to fill both positions
+  const showTop    = !!slots.top
+  const showJacket = !!slots.jacket
+  const showBottom = !!slots.bottoms
+  const showAccess = !!slots.access
+  const showShoes  = !!slots.shoes
 
   return (
-    <motion.div 
+    <motion.div
       className="outfit-card"
-      initial={{ opacity: 0, scale: 0.95 }}
+      initial={{ opacity: 0, scale: 0.97 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3 }}
     >
@@ -544,26 +573,18 @@ function OutfitCard({ outfit }) {
           </div>
         )}
       </div>
-      <motion.div 
-        className="outfit-card-items"
-        variants={containerVariants}
-        initial="hidden"
-        animate="show"
-      >
-        {outfit.items.map(item => (
-          <motion.div key={item.id} className="outfit-card-item" variants={itemVariants}>
-            <img
-              src={item.imageUrl?.startsWith("http") ? item.imageUrl : `http://localhost:8080${item.imageUrl}`}
-              alt={item.subcategory}
-              loading="lazy"
-            />
-            <div className="outfit-card-item-label">
-                <span>{item.color} {item.subcategory}</span>
-                <span className="tag tag-category" style={{marginLeft: "4px"}}>{item.category}</span>
-            </div>
-          </motion.div>
+
+      <div className="flat-lay-grid">
+        {showTop    && <FlatLayItem item={slots.top}    slot="top"    delay={0.05} />}
+        {showJacket && <FlatLayItem item={slots.jacket} slot="jacket" delay={0.10} />}
+        {showBottom && <FlatLayItem item={slots.bottoms} slot="bottoms" delay={0.15} />}
+        {showAccess && <FlatLayItem item={slots.access} slot="access" delay={0.20} />}
+        {showShoes  && <FlatLayItem item={slots.shoes}  slot="shoes"  delay={0.25} />}
+        {/* fallback: items with unknown categories */}
+        {unslotted.map((item, i) => (
+          <FlatLayItem key={item.id} item={item} slot="top" delay={0.05 * i} />
         ))}
-      </motion.div>
+      </div>
     </motion.div>
   )
 }
