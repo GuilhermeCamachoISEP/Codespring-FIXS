@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
-import { Sun, Moon, User, Hanger, Settings, Sparkles, Images } from "./Icons"
+import { Sun, Moon, User, Hanger, Settings, Sparkles, Images, Suitcase } from "./Icons"
 
 export default function AppHeader() {
   const { user, logout } = useAuth()
@@ -60,6 +60,13 @@ export default function AppHeader() {
             >
               <Settings />
               Preferências
+            </button>
+            <button
+              className={`nav-link ${is("/packing") ? "active" : ""}`}
+              onClick={() => navigate("/packing")}
+            >
+              <Suitcase />
+              Mala
             </button>
           </>
         ) : (

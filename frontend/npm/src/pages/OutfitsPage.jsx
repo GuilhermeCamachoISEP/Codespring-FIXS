@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react"
+import { useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
 import { getOutfits, getWardrobe, getWeather, saveOutfitHistory, refineOutfit } from "../services/api"
 import { useAuth } from "../context/AuthContext"
@@ -82,6 +83,7 @@ function resolveGeolocation(timeoutMs = GEO_TIMEOUT_MS) {
 
 export default function OutfitsPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [outfit, setOutfit]     = useState(null)
   const [weather, setWeather]   = useState(null)
   const [advisory, setAdvisory] = useState(null)
@@ -339,16 +341,25 @@ export default function OutfitsPage() {
         <h2 className="outfits-section-title">
           {loading ? "A gerar outfit…" : outfit ? "Outfit para hoje" : "Sem outfit gerado"}
         </h2>
-        <button
-          className="btn btn-secondary"
-          onClick={handleRegenerate}
-          disabled={loading || regenerating}
-        >
-          {regenerating
-            ? <><span className="loading-spinner" /> A gerar…</>
-            : <><RefreshCw /> Gerar novo</>
-          }
-        </button>
+        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+          <button
+            className="btn btn-secondary"
+            onClick={() => navigate("/lookbook")}
+            style={{ display: "flex", alignItems: "center", gap: "8px" }}
+          >
+            <span style={{ fontSize: "1.1rem" }}>📖</span> Ver Histórico
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={handleRegenerate}
+            disabled={loading || regenerating}
+          >
+            {regenerating
+              ? <><span className="loading-spinner" /> A gerar…</>
+              : <><RefreshCw /> Gerar novo</>
+            }
+          </button>
+        </div>
       </div>
 
       {loading && (
