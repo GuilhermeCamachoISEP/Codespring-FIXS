@@ -15,7 +15,6 @@ import Landing from "./pages/Landing"
 import SettingsStyles from "./pages/SettingsStyles"
 import EventOutfits from "./pages/EventOutfits"
 import ProfilePage from "./pages/ProfilePage"
-import InspirationPage from "./pages/InspirationPage"
 import Lookbook from "./pages/Lookbook"
 import PackingPage from "./pages/PackingPage"
 
@@ -100,7 +99,6 @@ function AppRoutes() {
             <Route path="/events/outfits" element={<ProtectedRoute><OnboardingGate><EventOutfits /></OnboardingGate></ProtectedRoute>} />
             <Route path="/settings/styles" element={<Navigate to="/preferences" replace />} />
             <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-            <Route path="/inspiration" element={<ProtectedRoute><OnboardingGate><InspirationPage /></OnboardingGate></ProtectedRoute>} />
             <Route path="/lookbook" element={<ProtectedRoute><OnboardingGate><Lookbook /></OnboardingGate></ProtectedRoute>} />
             <Route path="/packing" element={<ProtectedRoute><OnboardingGate><PackingPage /></OnboardingGate></ProtectedRoute>} />
             <Route path="/dashboard" element={<Navigate to={user ? "/outfits" : "/login"} replace />} />

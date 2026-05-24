@@ -28,6 +28,7 @@ export default function PackingPage() {
     const [error, setError] = useState("")
     const [result, setResult] = useState(null)
     const [savedPlans, setSavedPlans] = useState([])
+    const [saveToast, setSaveToast] = useState(null) // "success" | "error" | null
 
     useEffect(() => {
         loadSavedPlans()
@@ -79,9 +80,11 @@ export default function PackingPage() {
             const updated = [newPlan, ...savedPlans]
             localStorage.setItem("packing_plans", JSON.stringify(updated))
             setSavedPlans(updated)
-            alert("Plano guardado com sucesso!")
+            setSaveToast("success")
+            setTimeout(() => setSaveToast(null), 3000)
         } catch {
-            alert("Erro ao guardar o plano.")
+            setSaveToast("error")
+            setTimeout(() => setSaveToast(null), 3000)
         }
     }
 
@@ -245,6 +248,20 @@ export default function PackingPage() {
                         </div>
                     </div>
                 </motion.div>
+            )}
+
+            {saveToast && (
+                <div style={{
+                    position: "fixed", bottom: "2rem", left: "50%", transform: "translateX(-50%)",
+                    display: "flex", alignItems: "center", gap: "10px",
+                    background: saveToast === "success" ? "var(--color-success, #22c55e)" : "var(--color-danger, #ef4444)",
+                    color: "#000", padding: "12px 24px", borderRadius: "999px",
+                    fontWeight: 600, fontSize: "0.95rem",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.4)", zIndex: 9999,
+                    animation: "fadeInUp 0.25s ease-out"
+                }}>
+                    {saveToast === "success" ? "✓ Plano guardado com sucesso!" : "⚠️ Erro ao guardar o plano."}
+                </div>
             )}
         </div>
     )

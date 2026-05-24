@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
-import { Sun, Moon, User, Hanger, Settings, Sparkles, Images, Suitcase } from "./Icons"
+import { Sun, Moon, User, Hanger, Settings, Sparkles, Suitcase } from "./Icons"
 
 export default function AppHeader() {
   const { user, logout } = useAuth()
@@ -46,13 +46,6 @@ export default function AppHeader() {
             >
               <Sparkles />
               Outfits
-            </button>
-            <button
-              className={`nav-link ${is("/inspiration") ? "active" : ""}`}
-              onClick={() => navigate("/inspiration")}
-            >
-              <Images />
-              Inspiração
             </button>
             <button
               className={`nav-link ${is("/preferences") ? "active" : ""}`}
