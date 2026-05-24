@@ -171,6 +171,14 @@ public class ClaudeService {
     // ─── Text generation ─────────────────────────────────────────────────────
 
     public String generateOutfitsRaw(String prompt) {
+        return generateJson(prompt);
+    }
+
+    public String generatePackingRaw(String prompt) {
+        return generateJson(prompt);
+    }
+
+    public String generateOutfitsRawLegacy(String prompt) {
         try {
             if (!isConfigured()) {
                 System.out.println("[DEBUG-OUTFIT] ClaudeService is NOT configured (apiKey is missing or invalid)!");
@@ -213,7 +221,7 @@ public class ClaudeService {
         try {
             if (!isConfigured()) return "[]";
 
-            String body = buildTextRequestBody(prompt, 0.3, 512);
+            String body = buildTextRequestBody(prompt, 0.3, 2048);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(GROQ_URL))

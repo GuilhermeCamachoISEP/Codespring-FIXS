@@ -183,14 +183,21 @@ export async function sendChatMessage(message, history, lat, lon, mode = "conver
 
 export async function refineOutfit(message, history, context, lat, lon) {
     const body = { message, mode: "outfit-refine", history, context }
-    if (lat != null && lon != null) {
-        body.lat = lat
-        body.lon = lon
-    }
+    if (lat != null && lon != null) { body.lat = lat; body.lon = lon; }
     const res = await fetch(`${API_URL}/chat`, {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify(body)
+    })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+}
+
+export async function planPacking(tripDescription, travelDate) {
+    const res = await fetch(`${API_URL}/packing`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ tripDescription, travelDate })
     })
     if (!res.ok) throw new Error(await res.text())
     return res.json()
