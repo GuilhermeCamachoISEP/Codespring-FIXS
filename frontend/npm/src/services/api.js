@@ -41,6 +41,14 @@ export async function saveStyles(styles, gender, ageRange, budgetRange) {
     return res.json()
 }
 
+export async function getStyles() {
+    const res = await fetch(`${API_URL}/onboarding/styles`, {
+        headers: authHeaders()
+    })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+}
+
 export async function getOnboardingStatus() {
     const res = await fetch(`${API_URL}/onboarding/status`, {
         headers: authHeaders()
@@ -109,6 +117,16 @@ export async function getOutfits(lat, lon) {
     const res = await fetch(`${API_URL}/outfits${params}`, { headers: authHeaders() })
     if (!res.ok) throw new Error(await res.text())
     return res.json() // returns { outfits, weather, advisory }
+}
+
+export async function saveOutfitHistory(outfitItems) {
+    const res = await fetch(`${API_URL}/outfits/history`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ outfitItems })
+    })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
 }
 
 export async function getWeather(lat, lon) {

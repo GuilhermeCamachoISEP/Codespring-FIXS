@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext"
 export default function ChatPage() {
     const { user } = useAuth()
     const [messages, setMessages] = useState([
-        { role: "model", content: "Olá! Sou o teu AI Stylist pessoal. Que look procuras hoje ou que peça gostavas de adicionar ao armário?" }
+        { role: "model", content: "Olá! Sou o teu assistente de armário. Diz-me que peças novas compraste ou queres adicionar ao teu armário virtual (ex: 'adicionei uns ténis brancos da Nike') e eu guardo tudo por ti!" }
     ])
     const [input, setInput] = useState("")
     const [loading, setLoading] = useState(false)
@@ -29,7 +29,7 @@ export default function ChatPage() {
         setLoading(true)
 
         try {
-            const history = messages.filter(m => m.role !== "model" || !m.content.startsWith("Olá! Sou o teu AI Stylist"))
+            const history = messages.filter(m => m.role !== "model" || !m.content.startsWith("Olá! Sou o teu assistente de armário"))
             
             // Get location if possible for context
             let lat = null, lon = null

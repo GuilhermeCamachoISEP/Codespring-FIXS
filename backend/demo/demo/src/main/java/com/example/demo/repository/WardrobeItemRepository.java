@@ -8,4 +8,5 @@ public interface WardrobeItemRepository extends JpaRepository<WardrobeItem, Long
     List<WardrobeItem> findByUserIdOrderByCreatedAtDesc(Long userId);
     List<WardrobeItem> findByUserIdAndCategory(Long userId, String category);
     long countByUserId(Long userId);
+    List<WardrobeItem> findByUserIdAndSubcategoryIgnoreCaseOrderByCreatedAtDesc(Long userId, String subcategory);
 }

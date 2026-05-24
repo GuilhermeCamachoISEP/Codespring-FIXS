@@ -48,16 +48,34 @@ function clearCache() {
   localStorage.removeItem(CACHE_KEY)
 }
 
+const LOADING_MESSAGES = [
+  "A analisar a meteorologia...",
+  "A verificar os teus eventos...",
+  "A cruzar com o teu armário...",
+  "A aplicar o teu Style DNA 🧬..."
+];
+
 export default function OutfitsPage() {
   const { user } = useAuth()
   const [outfit, setOutfit]     = useState(null)
   const [weather, setWeather]   = useState(null)
   const [advisory, setAdvisory] = useState(null)
   const [loading, setLoading]   = useState(true)
+  const [loadingMsgIdx, setLoadingMsgIdx] = useState(0)
   const [regenerating, setRegenerating] = useState(false)
   const [error, setError]       = useState("")
   const coords = useRef(null)
   const lastSavedOutfitStr = useRef("")
+
+  useEffect(() => {
+    let interval;
+    if (loading || regenerating) {
+      interval = setInterval(() => {
+        setLoadingMsgIdx(prev => (prev + 1) % LOADING_MESSAGES.length);
+      }, 1500); // Change message every 1.5s
+    }
+    return () => clearInterval(interval);
+  }, [loading, regenerating]);
 
   // On mount: serve cache immediately, only hit the API if nothing is cached
   useEffect(() => {
@@ -89,6 +107,7 @@ export default function OutfitsPage() {
 
   async function fetchOutfit(lat, lon, isRegen = false) {
     isRegen ? setRegenerating(true) : setLoading(true)
+    setLoadingMsgIdx(0)
     setError("")
     try {
       const data = await getOutfits(lat, lon)
@@ -161,11 +180,10 @@ export default function OutfitsPage() {
 
       {loading && (
         <div className="loading-state">
-          <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>✨</div>
-          <p>
-            O AI está a combinar as tuas peças
-            {weather ? ` para ${Math.round(weather.temperature)}°C em ${weather.city}` : ""}…
-          </p>
+          <div className="ai-pulse-ring">
+            <div className="ai-core"></div>
+          </div>
+          <p className="loading-text" style={{ minHeight: '1.5em' }}>{LOADING_MESSAGES[loadingMsgIdx]}</p>
         </div>
       )}
 

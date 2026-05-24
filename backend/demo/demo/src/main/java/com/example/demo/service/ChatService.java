@@ -50,63 +50,112 @@ public class ChatService {
         }
 
         String systemPrompt = buildSystemPrompt(items, styleWeights, weather, request.getMode());
+        System.out.println("[DEBUG-CHAT] Sending chat request to ClaudeService...");
         String response = claudeService.chat(systemPrompt, request.getHistory(), request.getMessage());
+        System.out.println("[DEBUG-CHAT] Raw response from AI:\n" + response);
         
         response = extractAndSaveItems(userId, response);
+        System.out.println("[DEBUG-CHAT] Cleaned response to user:\n" + response);
         
         return new ChatResponse(response);
     }
 
     private String extractAndSaveItems(Long userId, String response) {
+        System.out.println("[DEBUG-CHAT] Entering extractAndSaveItems...");
         try {
             if (response.contains("```json")) {
+                System.out.println("[DEBUG-CHAT] Found ```json block");
                 int start = response.indexOf("```json") + 7;
                 int end = response.indexOf("```", start);
                 if (end > start) {
                     String jsonStr = response.substring(start, end).trim();
+                    System.out.println("[DEBUG-CHAT] Extracted JSON string: " + jsonStr);
                     JsonNode node = objectMapper.readTree(jsonStr);
                     saveConfirmedItems(userId, node);
                     return response.substring(0, response.indexOf("```json")).trim();
                 }
-            } else if (response.contains("{\"confirmed\"")) {
-                int start = response.indexOf("{\"confirmed\"");
-                int end = response.indexOf("}", start) + 1;
+            } else if (response.contains("{\"confirmed\"") || response.contains("{\"deleted\"")) {
+                System.out.println("[DEBUG-CHAT] Found raw JSON block without markdown");
+                int start = response.indexOf("{");
+                int end = response.lastIndexOf("}") + 1;
                 if (end > start) {
                     String jsonStr = response.substring(start, end).trim();
+                    System.out.println("[DEBUG-CHAT] Extracted raw JSON string: " + jsonStr);
                     JsonNode node = objectMapper.readTree(jsonStr);
                     saveConfirmedItems(userId, node);
-                    return response.replace(jsonStr, "").trim();
+                    return response.substring(0, start).trim();
                 }
+            } else {
+                System.out.println("[DEBUG-CHAT] No JSON or {\"confirmed\" signature found in response!");
             }
         } catch (Exception e) {
-            System.err.println("Failed to parse confirmed items: " + e.getMessage());
+            System.err.println("[DEBUG-CHAT] Failed to parse confirmed items: " + e.getMessage());
+            e.printStackTrace();
         }
         return response;
     }
 
     private void saveConfirmedItems(Long userId, JsonNode node) {
+        System.out.println("[DEBUG-CHAT] Entering saveConfirmedItems with node: " + node.toString());
+        
+        // Handling deletes first (by ID)
+        if (node.has("deleted") && node.get("deleted").isArray()) {
+            System.out.println("[DEBUG-CHAT] Found " + node.get("deleted").size() + " deleted items.");
+            for (JsonNode itemNode : node.get("deleted")) {
+                try {
+                    Long idToDel = itemNode.asLong();
+                    System.out.println("[DEBUG-CHAT] Attempting to delete ID: " + idToDel);
+                    wardrobeItemRepository.findById(idToDel).ifPresent(item -> {
+                        if (item.getUserId().equals(userId)) {
+                            wardrobeItemRepository.delete(item);
+                            System.out.println("[DEBUG-CHAT] Successfully deleted item ID: " + idToDel);
+                        }
+                    });
+                } catch (Exception e) {
+                    System.out.println("[DEBUG-CHAT] Failed to delete item, invalid ID format");
+                }
+            }
+        }
+        
+        // Handling confirms
         if (node.has("confirmed") && node.get("confirmed").isArray()) {
+            System.out.println("[DEBUG-CHAT] Found " + node.get("confirmed").size() + " confirmed items.");
             for (JsonNode itemNode : node.get("confirmed")) {
-                String itemName = itemNode.asText();
+                String itemName = itemNode.isObject() ? (itemNode.has("name") ? itemNode.get("name").asText() : itemNode.toString()) : itemNode.asText();
+                if (itemName == null || itemName.trim().isEmpty()) {
+                    System.out.println("[DEBUG-CHAT] Skipping empty itemName (likely JSON formatting error)");
+                    continue;
+                }
+                System.out.println("[DEBUG-CHAT] Processing item: " + itemName);
                 String imageUrl = googleImageSearchService.fetchImageUrl(itemName);
                 if (imageUrl == null) {
-                    imageUrl = "https://placehold.co/400x500/1e1e1e/fff?text=" + itemName.replace(" ", "+");
+                    System.out.println("[DEBUG-CHAT] SerpApi failed/returned null, generating placeholder for " + itemName);
+                    try {
+                        imageUrl = "https://placehold.co/400x500/1e1e1e/fff?text=" + java.net.URLEncoder.encode(itemName, "UTF-8");
+                    } catch (Exception e) {
+                        imageUrl = "https://placehold.co/400x500/1e1e1e/fff?text=Roupa";
+                    }
+                } else {
+                    System.out.println("[DEBUG-CHAT] SerpApi SUCCESS, url: " + imageUrl);
                 }
                 
                 WardrobeItem newItem = WardrobeItem.builder()
                         .userId(userId)
                         .category("tops") // generic fallback
                         .subcategory(itemName)
-                        .color("unknown")
+                        .color("")
                         .fit("regular")
-                        .material("unknown")
-                        .brand("unknown")
+                        .material("")
+                        .brand("")
                         .imageUrl(imageUrl)
                         .season("[]")
                         .styleTags("[]")
                         .build();
                 wardrobeItemRepository.save(newItem);
+                System.out.println("[DEBUG-CHAT] Saved item to DB: " + itemName);
             }
+        } else {
+            System.out.println("[DEBUG-CHAT] No 'confirmed' array found in JSON node!");
         }
     }
 
@@ -116,7 +165,7 @@ public class ChatService {
         String colorPalette = "N/A";
         String recentOutfits = "N/A";
         
-        String modeStr = (mode != null && mode.equals("conversational")) ? "conversational_mode" : "photo_mode";
+        String modeStr = (mode != null && mode.equals("conversational")) ? "add_clothes_mode" : "photo_mode";
         
         StringBuilder itemsStr = new StringBuilder();
         try {
@@ -161,24 +210,13 @@ public class ChatService {
                    swap for your white tee instead"
                 - Confidence level on suggestions: HIGH — you've seen the clothes
 
-                MODE B — CONVERSATIONAL MODE (zero friction, progressive) [USE WHEN wardrobe_mode="conversational_mode"]:
-                User has no photos. Wardrobe builds through conversation.
-
-                  IF wardrobe is completely empty (first use):
-                  - Don't ask the user to set anything up
-                  - Immediately suggest a full outfit based on weather + calendar context
-                  - Use specific but generic items: "navy slim-fit chinos" not just "trousers"
-                  - After suggesting, ask exactly one question:
-                    "Do you have anything like this? Tell me what you own and 
-                     I'll remember it for next time."
-                  - Parse their response and return a wardrobe update JSON:
-                    {"confirmed": ["item1", "item2"], "missing": ["item3"]}
-
-                  IF wardrobe is partially built (returning user):
-                  - Prioritize confirmed items in suggestions
-                  - For gaps, suggest generic alternatives and ask if they own something similar
-                  - Gradually fill wardrobe through natural conversation
-                  - Never make the user feel like they're doing data entry
+                MODE B — ADD CLOTHES MODE (fast wardrobe building) [USE WHEN wardrobe_mode="add_clothes_mode"]:
+                The user is chatting with you strictly to add new items to their virtual wardrobe.
+                - DO NOT suggest outfits in this mode.
+                - Your ONLY goal is to extract the clothing items the user mentions.
+                - Be friendly, enthusiastic, and brief.
+                - If they mention items, confirm you added them (e.g. "Boa! Adicionei a tua camisa preta. Mais alguma coisa?")
+                - ALWAYS include the JSON block when they mention new items.
 
                 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                 UNIVERSAL RULES (BOTH MODES):
@@ -191,31 +229,22 @@ public class ChatService {
                 - Never suggest buying new clothes
                 - Never use filler: no "Great!", "Sure!", "Of course!", "Absolutely!"
                 - MANTÉM TUDO EM PORTUGUÊS DE PORTUGAL. A tua resposta TEM DE SER na língua do utilizador.
-                
-                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                RESPONSE FORMAT:
-                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                Raciocínio: [uma linha — contexto + lógica]
-                Look sugerido: [peça 1] + [peça 2] + [peça 3] (+ [peça 4] se necessário)
-                Porque funciona: [uma linha — lógica de cores/estilo]
-                Próximo passo: [uma pergunta curta ao utilizador para progredir]
+                - MANTÉM TUDO EM PORTUGUÊS DE PORTUGAL. A tua resposta TEM DE SER na língua do utilizador.
 
                 MUITO IMPORTANTE (ATUALIZAÇÃO DE ARMÁRIO):
-                Se o utilizador acabar de CONFIRMAR que tem certas peças (ex: "sim, tenho umas calças de alfaiataria"), tens OBRIGATORIAMENTE de adicionar no final absoluto da tua mensagem, DEPOIS de todo o texto, um bloco JSON para o sistema guardar as peças dele automaticamente.
-                Isto evita que o utilizador tenha trabalho manual!
+                Se o utilizador mencionar peças que quer adicionar (ex: "comprei uma t-shirt preta, um cachecol e umas meias"), tens OBRIGATORIAMENTE de devolver um bloco JSON no final da mensagem para guardar TODAS as peças no array "confirmed". Podes e deves guardar múltiplas peças ao mesmo tempo!
+                Se o utilizador disser que se enganou ou quiser corrigir uma peça anterior (ex: "não era azul, era vermelha"), usa o campo "deleted" com o ID numérico exato da peça antiga (que está no teu context 'known_wardrobe') e o "confirmed" com o nome da peça nova.
 
                 Exemplo do formato JSON obrigatório (usa sempre os ```json):
                 ```json
                 {
-                  "confirmed": ["calças de alfaiataria", "camisa branca"],
-                  "missing": []
+                  "confirmed": ["t-shirt preta", "cachecol", "meias"],
+                  "deleted": [102]
                 }
                 ```
                 
                 NEVER:
-                - Suggest items not in wardrobe when MODE A is active
-                - Ask more than one question per response
-                - Give generic advice disconnected from weather/calendar context
+                - Suggest outfits in add_clothes_mode
                 - Mention the mode name to the user
                 """.formatted(weatherStr, calendarEvent, modeStr, itemsStr.toString(), recentOutfits, colorPalette, styleWeights);
     }

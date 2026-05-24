@@ -78,7 +78,10 @@ export default function WardrobeGallery() {
             />
           </div>
           <button className="btn btn-primary" onClick={() => navigate("/wardrobe/upload")}>
-            <Plus /> Adicionar
+            <Plus /> Add Foto
+          </button>
+          <button className="btn btn-secondary" style={{ backgroundColor: 'var(--accent)', color: '#000', border: 'none', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => navigate("/chat")}>
+            <span>💬</span> Adição Rápida (sem fotos)
           </button>
         </div>
       </div>
