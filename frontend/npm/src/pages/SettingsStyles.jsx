@@ -4,20 +4,7 @@ import { saveStyles, getStyles } from "../services/api"
 import AppHeader from "../components/AppHeader"
 import { ArrowLeft } from "../components/Icons"
 
-const STYLES = [
-  { id: "streetwear",   label: "Streetwear",     desc: "Hoodies, sneakers, oversized, urbano" },
-  { id: "oldMoney",     label: "Old Money",       desc: "Loafers, malhas, camisas, clássico" },
-  { id: "gorpcore",     label: "Gorpcore",        desc: "Fleece, outdoor, técnico, utilitário" },
-  { id: "preppy",       label: "Preppy",          desc: "Polos, chinos, blazers, college" },
-  { id: "vintage",      label: "Vintage",         desc: "Retro, thrift, denim, peças antigas" },
-  { id: "minimalist",   label: "Minimalista",     desc: "Básicos, neutros, cortes limpos" },
-  { id: "techwear",     label: "Techwear",        desc: "Preto, bolsos, nylon, funcional" },
-  { id: "y2k",          label: "Y2K",             desc: "Anos 2000, metálicos, denim, pop" },
-  { id: "luxury",       label: "Luxury",          desc: "Designer, statement, materiais fortes" },
-  { id: "darkAcademia", label: "Dark Academia",   desc: "Tweed, lã, castanhos, literário" },
-  { id: "quietLuxury",  label: "Quiet Luxury",    desc: "Qualidade discreta, sem logos" },
-  { id: "casual",       label: "Casual",          desc: "Confortável, simples, dia a dia" },
-]
+// Os estilos antigos foram removidos. Agora apresentamos os estilos gerados pelo Tinder-style de forma dinâmica!
 
 export default function SettingsStyles() {
   const [selected, setSelected] = useState(new Set())
@@ -31,11 +18,9 @@ export default function SettingsStyles() {
         const data = await getStyles()
         if (data && data.styleWeights) {
           const weights = JSON.parse(data.styleWeights)
-          // Filtra para garantir que só carregamos IDs que existem na lista STYLES atual
-          const validIds = Object.keys(weights).filter(id => 
-            STYLES.some(s => s.id === id)
-          )
-          setSelected(new Set(validIds))
+          // Agora só carregamos as tags tal como vêm da base de dados!
+          const tags = Object.keys(weights)
+          setSelected(new Set(tags))
         }
       } catch (err) {
         console.error("Failed to load styles:", err)
@@ -79,58 +64,42 @@ export default function SettingsStyles() {
 
       <div className="page-header">
         <h1 className="page-title">Preferências de estilo</h1>
-        <p className="page-subtitle">Seleciona os estilos que o AI vai usar nas tuas sugestões</p>
+        <p className="page-subtitle">O teu Style DNA gerado pela IA</p>
+      </div>
+
+      <div style={{ marginBottom: "24px" }}>
+        <button 
+          className="btn btn-secondary" 
+          onClick={() => navigate("/onboarding/styles")}
+          style={{ width: "100%", padding: "12px", background: "linear-gradient(135deg, var(--accent) 0%, #d4ff70 100%)", color: "#000", border: "none", fontWeight: "bold", display: "flex", justifyContent: "center", gap: "8px", alignItems: "center" }}
+        >
+          <span>🔥</span> Refazer Descoberta de Estilo (Tinder-style)
+        </button>
       </div>
 
       <div className="preference-section">
-        <h3>Os meus estilos</h3>
+        <h3>As tuas Tags de Estilo</h3>
         <p className="page-subtitle" style={{ marginBottom: "20px" }}>
-          Seleciona um ou mais estilos que te identificam
+          Aqui estão os elementos chave que a IA identificou no teu estilo com base no teu Tinder-style:
         </p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-          {STYLES.map(style => (
-            <button
-              key={style.id}
-              className={`style-chip ${selected.has(style.id) ? "selected" : ""}`}
-              onClick={() => toggle(style.id)}
-              title={style.desc}
-            >
-              {style.label}
-            </button>
-          ))}
-        </div>
+        
+        {selected.size === 0 ? (
+          <p style={{ color: "var(--color-text-muted)", fontStyle: "italic" }}>Ainda não definiste o teu estilo. Faz o teste acima!</p>
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+            {[...selected].map(tag => (
+              <div
+                key={tag}
+                className="style-chip selected"
+                style={{ cursor: "default", textTransform: "capitalize", fontSize: "16px", padding: "8px 16px" }}
+              >
+                #{tag}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {selected.size > 0 && (
-        <div className="preference-section">
-          <h3>Selecionados</h3>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-            {[...selected].map(id => {
-              const s = STYLES.find(st => st.id === id)
-              return (
-                <div key={id} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                  <span style={{ fontSize: "13px", fontWeight: "500" }}>{s?.label}</span>
-                  <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>{s?.desc}</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {error && <p className="error">{error}</p>}
-
-      <button
-        className="btn btn-primary"
-        onClick={handleSave}
-        disabled={selected.size === 0 || loading}
-        style={{ width: "100%", marginTop: "8px" }}
-      >
-        {loading
-          ? <><span className="loading-spinner" /> A guardar…</>
-          : `Guardar preferências (${selected.size} estilo${selected.size !== 1 ? "s" : ""})`
-        }
-      </button>
     </div>
   )
 }
