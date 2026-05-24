@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react"
+import { motion } from "framer-motion"
 import { useSearchParams, useNavigate } from "react-router-dom"
 import { getOutfitsForEvent, reserveOutfit } from "../services/api"
 import AppHeader from "../components/AppHeader"
@@ -14,6 +15,7 @@ export default function EventOutfits() {
   const [loading, setLoading] = useState(true)
   const [reservingId, setReservingId] = useState(null)
   const [error, setError] = useState("")
+  const [toastMessage, setToastMessage] = useState(null)
   const navigate = useNavigate()
   const coords = useRef(null)
 
@@ -51,11 +53,12 @@ export default function EventOutfits() {
     try {
       const itemIds = outfit.items.map(i => i.id)
       await reserveOutfit(eventName, eventDate, itemIds)
-      alert("Outfit reservado com sucesso! Estas peças não vão aparecer nas tuas sugestões normais no dia " + eventDate)
-      navigate("/dashboard")
+      setToastMessage("Outfit reservado! Estas peças não aparecerão nas tuas sugestões de " + eventDate)
+      setTimeout(() => navigate("/dashboard"), 2500)
     } catch (err) {
-      alert("Erro ao reservar: " + err.message)
+      setToastMessage("⚠️ Erro ao reservar: " + err.message)
       setReservingId(null)
+      setTimeout(() => setToastMessage(null), 3000)
     }
   }
 
@@ -113,35 +116,99 @@ export default function EventOutfits() {
           ))}
         </div>
       )}
+
+      {toastMessage && (
+        <div style={{
+          position: "fixed", bottom: "2rem", right: "2rem",
+          background: "var(--color-bg)", padding: "1rem 1.5rem", borderRadius: "8px",
+          borderLeft: "4px solid var(--color-primary)", boxShadow: "0 8px 30px rgba(0,0,0,0.5)",
+          color: "#fff", zIndex: 1000, display: "flex", alignItems: "center", gap: "12px",
+          animation: "slideIn 0.3s ease-out forwards"
+        }}>
+          <span style={{ fontSize: "1.2rem" }}>✅</span>
+          <div>
+            <div style={{ fontWeight: "bold", marginBottom: "4px" }}>Sucesso</div>
+            <div style={{ fontSize: "0.9rem", color: "#aaa" }}>{toastMessage}</div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function EventOutfitCard({ outfit, isReserving, onReserve }) {
+const CATEGORY_SLOT = {
+  tops:        "top",
+  jackets:     "jacket",
+  bottoms:     "bottoms",
+  accessories: "access",
+  shoes:       "shoes",
+}
+
+function FlatLayItem({ item, slot, delay = 0 }) {
   return (
-    <div className="outfit-card" style={{ border: "2px solid rgba(255, 255, 255, 0.1)" }}>
+    <motion.div
+      className={`flat-lay-item flat-lay-${slot}`}
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 280, damping: 26, delay }}
+    >
+      <img src={`http://localhost:8080${item.imageUrl}`} alt={item.subcategory} loading="lazy" />
+      <div className="flat-lay-label">
+        <span className="flat-lay-label-name">{item.color} {item.subcategory}</span>
+        <span className="tag tag-category">{item.category}</span>
+      </div>
+    </motion.div>
+  )
+}
+
+function EventOutfitCard({ outfit, isReserving, onReserve }) {
+  const slots = {}
+  const unslotted = []
+  for (const item of outfit.items) {
+    const slot = CATEGORY_SLOT[item.category]
+    if (slot && !slots[slot]) slots[slot] = item
+    else if (!slot) unslotted.push(item)
+  }
+
+  const showTop    = !!slots.top
+  const showJacket = !!slots.jacket
+  const showBottom = !!slots.bottoms
+  const showAccess = !!slots.access
+  const showShoes  = !!slots.shoes
+
+  return (
+    <motion.div 
+      className="outfit-card"
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3 }}
+    >
       <div className="outfit-card-header">
-        <div className="outfit-card-name" style={{ color: "#e1a8ff" }}>{outfit.name}</div>
+        <div className="outfit-card-name" style={{ color: "var(--color-primary)" }}>{outfit.name}</div>
         <div className="outfit-card-desc">{outfit.description}</div>
       </div>
-      <div className="outfit-card-items">
-        {outfit.items.map(item => (
-          <div key={item.id} className="outfit-card-item">
-            <img src={`http://localhost:8080${item.imageUrl}`} alt={item.subcategory} loading="lazy" />
-            <div className="outfit-card-item-label">{item.color} {item.subcategory}</div>
-          </div>
+      
+      <div className="flat-lay-grid">
+        {showTop    && <FlatLayItem item={slots.top}    slot="top"    delay={0.05} />}
+        {showJacket && <FlatLayItem item={slots.jacket} slot="jacket" delay={0.10} />}
+        {showBottom && <FlatLayItem item={slots.bottoms} slot="bottoms" delay={0.15} />}
+        {showAccess && <FlatLayItem item={slots.access} slot="access" delay={0.20} />}
+        {showShoes  && <FlatLayItem item={slots.shoes}  slot="shoes"  delay={0.25} />}
+        {unslotted.map((item, i) => (
+          <FlatLayItem key={item.id} item={item} slot="top" delay={0.05 * i} />
         ))}
       </div>
+
       <div style={{ padding: "1rem", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
         <button 
           className="btn btn-primary" 
-          style={{ width: "100%" }}
+          style={{ width: "100%", padding: "0.8rem", fontWeight: "bold" }}
           onClick={onReserve}
           disabled={isReserving}
         >
-          {isReserving ? "A reservar..." : "Reservar este Outfit"}
+          {isReserving ? "A reservar..." : "Reservar este Outfit para o Evento"}
         </button>
       </div>
-    </div>
+    </motion.div>
   )
 }

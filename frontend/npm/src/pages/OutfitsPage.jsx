@@ -418,20 +418,20 @@ function WeatherSection({ weather, advisory, loading, unavailable }) {
   }
   if (loading) {
     return (
-      <div className="weather-advisory" style={{ padding: "1.5rem" }}>
+      <div className="weather-advisory" style={{ padding: "1.5rem", display: "flex", flexDirection: "column", height: "100%", margin: 0 }}>
         A obter clima…
       </div>
     )
   }
   if (unavailable) {
     return (
-      <div className="weather-advisory" style={{ padding: "1.5rem", color: "var(--color-text-muted)" }}>
+      <div className="weather-advisory" style={{ padding: "1.5rem", color: "var(--color-text-muted)", display: "flex", flexDirection: "column", height: "100%", margin: 0 }}>
         Clima indisponível
       </div>
     )
   }
   return (
-    <div className="weather-advisory" style={{ padding: "1.5rem", color: "var(--color-text-muted)" }}>
+    <div className="weather-advisory" style={{ padding: "1.5rem", color: "var(--color-text-muted)", display: "flex", flexDirection: "column", height: "100%", margin: 0 }}>
       Clima indisponível
     </div>
   )
@@ -480,7 +480,7 @@ function WeatherBar({ weather, advisory }) {
   const extraTips = advisory?.tips?.slice(1) ?? []
 
   return (
-    <div className="weather-advisory" style={{ marginBottom: "16px" }}>
+    <div className="weather-advisory" style={{ display: "flex", flexDirection: "column", height: "100%", margin: 0 }}>
       <div className="context-bar" style={{ marginBottom: 0, boxShadow: "none", background: "transparent", padding: "1.1rem 1.5rem" }}>
         <div className="weather-bar-left">
           <div className="weather-bar-icon">{weather.icon}</div>
