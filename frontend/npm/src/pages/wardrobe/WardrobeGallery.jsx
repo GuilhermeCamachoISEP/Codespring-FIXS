@@ -56,6 +56,18 @@ export default function WardrobeGallery() {
     try { return JSON.parse(json) } catch { return [] }
   }
 
+  function lastUsedLabel(lastUsedAt) {
+    if (!lastUsedAt) return null
+    const d = new Date(lastUsedAt)
+    const today = new Date(); today.setHours(0,0,0,0)
+    const diff = Math.round((today - d) / 86400000)
+    if (diff === 0) return "Usado hoje"
+    if (diff === 1) return "Usado ontem"
+    if (diff <= 7) return `Há ${diff} dias`
+    if (diff <= 30) return `Há ${Math.round(diff/7)} sem.`
+    return null   // too old to show
+  }
+
   const visible = search.trim()
     ? items.filter(i =>
         `${i.color ?? ""} ${i.subcategory ?? ""} ${i.category ?? ""}`
@@ -126,23 +138,33 @@ export default function WardrobeGallery() {
             <span>Adicionar</span>
           </div>
 
-          {visible.map(item => (
-            <div
-              key={item.id}
-              className={`wardrobe-item ${selected?.id === item.id ? "selected" : ""}`}
-              onClick={() => setSelected(selected?.id === item.id ? null : item)}
-            >
-              <img
-                src={item.imageUrl?.startsWith("http") ? item.imageUrl : `http://localhost:8080${item.imageUrl}`}
-                alt={item.subcategory}
-                loading="lazy"
-              />
-              <div className="wardrobe-item-label">
-                <span className="wardrobe-item-name">{item.color} {item.subcategory}</span>
-                <span className="wardrobe-item-cat">{item.category}</span>
+          {visible.map(item => {
+            const usedLabel = lastUsedLabel(item.lastUsedAt)
+            const usedToday = usedLabel === "Usado hoje"
+            return (
+              <div
+                key={item.id}
+                className={`wardrobe-item ${selected?.id === item.id ? "selected" : ""}`}
+                onClick={() => setSelected(selected?.id === item.id ? null : item)}
+              >
+                {usedToday && (
+                  <span className="wardrobe-used-badge wardrobe-used-today">hoje</span>
+                )}
+                <img
+                  src={item.imageUrl?.startsWith("http") ? item.imageUrl : `http://localhost:8080${item.imageUrl}`}
+                  alt={item.subcategory}
+                  loading="lazy"
+                />
+                <div className="wardrobe-item-label">
+                  <span className="wardrobe-item-name">{item.color} {item.subcategory}</span>
+                  <span className="wardrobe-item-cat">{item.category}</span>
+                  {usedLabel && !usedToday && (
+                    <span className="wardrobe-used-label">{usedLabel}</span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -167,6 +189,12 @@ export default function WardrobeGallery() {
                   {selected.brand && selected.brand !== "unknown" && <tr><td>Marca</td><td>{selected.brand}</td></tr>}
                   {selected.season && (
                     <tr><td>Estação</td><td>{parseTags(selected.season).join(", ")}</td></tr>
+                  )}
+                  {selected.timesUsed > 0 && (
+                    <tr><td>Usado</td><td>{selected.timesUsed}× no total</td></tr>
+                  )}
+                  {selected.lastUsedAt && (
+                    <tr><td>Última vez</td><td>{lastUsedLabel(selected.lastUsedAt) ?? new Date(selected.lastUsedAt).toLocaleDateString('pt-PT')}</td></tr>
                   )}
                 </tbody>
               </table>

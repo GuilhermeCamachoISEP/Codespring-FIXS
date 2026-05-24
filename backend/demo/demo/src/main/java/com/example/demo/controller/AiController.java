@@ -22,10 +22,16 @@ public class AiController {
 
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> status() {
-        return ResponseEntity.ok(Map.of(
-                "provider", "groq",
-                "configured", claudeService.isConfigured(),
-                "model", claudeService.getModel()
-        ));
+        boolean configured = claudeService.isConfigured();
+        String testResult = configured ? claudeService.testConnection() : "NOT_CONFIGURED";
+        boolean working = "OK".equals(testResult);
+
+        java.util.Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("provider", "groq");
+        body.put("configured", configured);
+        body.put("working", working);
+        body.put("model", claudeService.getModel());
+        if (!working) body.put("error", testResult);
+        return ResponseEntity.ok(body);
     }
 }

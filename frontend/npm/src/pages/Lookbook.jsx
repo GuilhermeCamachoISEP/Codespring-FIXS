@@ -1,8 +1,21 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { getOutfitHistory, getLikedOutfits, toggleOutfitLike } from "../services/api"
+import { getOutfitHistory, getLikedOutfits, getReservedOutfits, toggleOutfitLike } from "../services/api"
 import AppHeader from "../components/AppHeader"
 import "./Lookbook.css"
+
+function WornBadge() {
+    return (
+        <span style={{
+            display: "inline-flex", alignItems: "center", gap: "4px",
+            background: "var(--color-success, #22c55e)", color: "#000",
+            fontSize: "0.7rem", fontWeight: 700, padding: "2px 8px",
+            borderRadius: "999px", letterSpacing: "0.03em"
+        }}>
+            ✓ Usado
+        </span>
+    )
+}
 
 function HeartIcon({ isLiked }) {
     return (
@@ -21,8 +34,17 @@ function HeartIcon({ isLiked }) {
     )
 }
 
+function parseDate(dateString) {
+    if (!dateString) return new Date()
+    // LocalDate comes as "2026-05-24" — add noon to avoid UTC midnight timezone shift
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return new Date(dateString + "T12:00:00")
+    }
+    return new Date(dateString)
+}
+
 function formatDate(dateString) {
-    const date = new Date(dateString)
+    const date = parseDate(dateString)
     const today = new Date()
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
@@ -40,7 +62,8 @@ function formatDate(dateString) {
 export default function Lookbook() {
     const [history, setHistory] = useState([])
     const [liked, setLiked] = useState([])
-    const [tab, setTab] = useState("all") // "all" or "liked"
+    const [reserved, setReserved] = useState([])
+    const [tab, setTab] = useState("all") // "all" | "worn" | "liked" | "reserved"
     const [loading, setLoading] = useState(true)
     const navigate = useNavigate()
 
@@ -51,12 +74,14 @@ export default function Lookbook() {
     async function loadData() {
         setLoading(true)
         try {
-            const [histData, likedData] = await Promise.all([
+            const [histData, likedData, reservedData] = await Promise.all([
                 getOutfitHistory(),
-                getLikedOutfits()
+                getLikedOutfits(),
+                getReservedOutfits()
             ])
             setHistory(histData)
             setLiked(likedData)
+            setReserved(reservedData)
         } catch (err) {
             console.error("Failed to load lookbook", err)
         } finally {
@@ -97,7 +122,13 @@ export default function Lookbook() {
         });
     }
 
-    const displayedOutfits = deduplicate(tab === "all" ? history : liked)
+    const wornOutfits = history.filter(h => h.worn)
+    const displayedOutfits = deduplicate(
+        tab === "all"      ? history :
+        tab === "worn"     ? wornOutfits :
+        tab === "reserved" ? reserved :
+        /* liked */          liked
+    )
 
     return (
         <div className="app-container">
@@ -106,22 +137,39 @@ export default function Lookbook() {
             <div className="wardrobe-top-row">
                 <div className="page-header" style={{ margin: 0 }}>
                     <h1 className="page-title">Histórico</h1>
-                    <p className="page-subtitle">O teu histórico de outfits gerados</p>
+                    <p className="page-subtitle">
+                        {wornOutfits.length > 0
+                            ? `${wornOutfits.length} outfit${wornOutfits.length !== 1 ? "s" : ""} usado${wornOutfits.length !== 1 ? "s" : ""} · ${history.length} gerado${history.length !== 1 ? "s" : ""}`
+                            : `${history.length} outfit${history.length !== 1 ? "s" : ""} gerado${history.length !== 1 ? "s" : ""}`
+                        }
+                    </p>
                 </div>
             </div>
 
             <div className="lookbook-tabs">
-                <button 
+                <button
                     className={`lookbook-tab ${tab === "all" ? "active" : ""}`}
                     onClick={() => setTab("all")}
                 >
-                    Todos os Outfits
+                    Todos ({history.length})
                 </button>
-                <button 
+                <button
+                    className={`lookbook-tab ${tab === "worn" ? "active" : ""}`}
+                    onClick={() => setTab("worn")}
+                >
+                    👕 Usados ({wornOutfits.length})
+                </button>
+                <button
                     className={`lookbook-tab ${tab === "liked" ? "active" : ""}`}
                     onClick={() => setTab("liked")}
                 >
-                    Favoritos ({liked.length})
+                    ♥ Favoritos ({liked.length})
+                </button>
+                <button
+                    className={`lookbook-tab ${tab === "reserved" ? "active" : ""}`}
+                    onClick={() => setTab("reserved")}
+                >
+                    📅 Reservados ({reserved.length})
                 </button>
             </div>
 
@@ -129,8 +177,10 @@ export default function Lookbook() {
 
             {!loading && displayedOutfits.length === 0 && (
                 <div className="empty-state">
-                    <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📖</div>
-                    {tab === "all" ? (
+                    <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>
+                        {tab === "worn" ? "👕" : "📖"}
+                    </div>
+                    {tab === "all" && (
                         <>
                             <p style={{ marginBottom: "0.5rem" }}>O teu histórico está vazio.</p>
                             <p style={{ fontSize: "0.9rem" }}>Gera o teu primeiro outfit para começares a monitorizar.</p>
@@ -138,8 +188,24 @@ export default function Lookbook() {
                                 Gerar Outfit
                             </button>
                         </>
-                    ) : (
+                    )}
+                    {tab === "worn" && (
+                        <>
+                            <p style={{ marginBottom: "0.5rem" }}>Ainda não marcaste nenhum outfit como usado.</p>
+                            <p style={{ fontSize: "0.9rem" }}>Na página de Outfits, clica em "Vesti este outfit hoje" para registar o que usaste.</p>
+                            <button className="btn btn-primary" style={{ marginTop: "1rem" }} onClick={() => navigate("/outfits")}>
+                                Ver Outfit de Hoje
+                            </button>
+                        </>
+                    )}
+                    {tab === "liked" && (
                         <p>Ainda não tens favoritos. Coloca gosto num outfit para o guardares aqui.</p>
+                    )}
+                    {tab === "reserved" && (
+                        <>
+                            <p style={{ marginBottom: "0.5rem" }}>Ainda não tens outfits reservados para eventos.</p>
+                            <p style={{ fontSize: "0.9rem" }}>No calendário, clica num evento e reserva o outfit para o ver aqui.</p>
+                        </>
                     )}
                 </div>
             )}
@@ -155,10 +221,33 @@ export default function Lookbook() {
                         }
 
                         return (
-                            <div key={outfit.id} className={`lookbook-card ${outfit.isLiked ? 'liked-glow' : ''}`}>
+                            <div key={outfit.id} className={`lookbook-card ${outfit.isLiked ? 'liked-glow' : ''} ${outfit.worn ? 'worn-card' : outfit.eventName ? 'reserved-card' : 'generated-card'}`}>
                                 <div className="lookbook-card-header">
-                                    <span className="lookbook-date">{formatDate(outfit.wornAt)}</span>
-                                    <button 
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                                            <span className="lookbook-date">
+                                                {outfit.worn && outfit.wornDate
+                                                    ? formatDate(outfit.wornDate)
+                                                    : formatDate(outfit.wornAt)}
+                                            </span>
+                                            {outfit.worn ? <WornBadge /> : outfit.eventName ? (
+                                                <span style={{
+                                                    display: "inline-flex", alignItems: "center", gap: "4px",
+                                                    background: "var(--color-primary, #7c3aed)", color: "#fff",
+                                                    fontSize: "0.7rem", fontWeight: 700, padding: "2px 8px",
+                                                    borderRadius: "999px", letterSpacing: "0.03em"
+                                                }}>
+                                                    📅 {outfit.eventName}
+                                                </span>
+                                            ) : (
+                                                <span style={{
+                                                    fontSize: "0.7rem", color: "var(--color-text-muted)",
+                                                    fontStyle: "italic"
+                                                }}>gerado</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <button
                                         className={`like-btn ${outfit.isLiked ? 'liked' : ''}`}
                                         onClick={() => handleToggleLike(outfit.id)}
                                         aria-label="Toggle like"
@@ -171,7 +260,7 @@ export default function Lookbook() {
                                         <div key={item.id} className="lookbook-item">
                                             <div className="item-img-container">
                                                 {item.imageUrl ? (
-                                                    <img src={`http://localhost:8080${item.imageUrl}`} alt={item.subcategory} className="item-img" />
+                                                    <img src={item.imageUrl?.startsWith("http") ? item.imageUrl : `http://localhost:8080${item.imageUrl}`} alt={item.subcategory} className="item-img" />
                                                 ) : (
                                                     <div className="item-placeholder">👕</div>
                                                 )}

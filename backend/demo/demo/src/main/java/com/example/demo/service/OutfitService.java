@@ -74,14 +74,35 @@ public class OutfitService {
         List<OutfitHistory> recentHistory = historyService.getLast7Outfits(userId);
         List<OutfitHistory> likedHistory = historyService.getLikedOutfits(userId);
 
+        // Collect item IDs worn in the last 2 days to deprioritize them
+        java.util.Set<Long> recentlyWornItemIds = new java.util.HashSet<>();
+        try {
+            for (OutfitHistory h : historyService.getWornSince(userId, 2)) {
+                com.fasterxml.jackson.databind.JsonNode nodes = new com.fasterxml.jackson.databind.ObjectMapper().readTree(h.getOutfitItems());
+                if (nodes.isArray()) {
+                    for (com.fasterxml.jackson.databind.JsonNode n : nodes) {
+                        long itemId = n.path("id").asLong(-1);
+                        if (itemId > 0) recentlyWornItemIds.add(itemId);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[OutfitService] Could not parse recent worn items: " + e.getMessage());
+        }
+
         // RAG: Semantic Search with Groq Embeddings
         Map<Long, Double> ragScores = applySemanticRAG(availableItems, styleWeights, likedHistory);
         if (!ragScores.isEmpty()) {
             availableItems = new ArrayList<>(availableItems);
-            availableItems.sort((a, b) -> Double.compare(
-                    ragScores.getOrDefault(b.getId(), 0.0),
-                    ragScores.getOrDefault(a.getId(), 0.0)
-            ));
+            availableItems.sort((a, b) -> {
+                // Penalise items worn in the last 2 days (push them to the back)
+                double penaltyA = recentlyWornItemIds.contains(a.getId()) ? -0.5 : 0.0;
+                double penaltyB = recentlyWornItemIds.contains(b.getId()) ? -0.5 : 0.0;
+                return Double.compare(
+                        ragScores.getOrDefault(b.getId(), 0.0) + penaltyB,
+                        ragScores.getOrDefault(a.getId(), 0.0) + penaltyA
+                );
+            });
         }
 
         String prompt = buildPrompt(availableItems, ragScores, styleWeights, weather, null, recentHistory, likedHistory);
@@ -180,6 +201,36 @@ public class OutfitService {
         }
     }
 
+    // ─── Event formality mapping ─────────────────────────────────────────────
+
+    private static String resolveEventDressCode(String eventName) {
+        if (eventName == null) return null;
+        String lc = eventName.toLowerCase();
+
+        if (lc.matches(".*\\b(casamento|wedding|cerimónia|cerimonia|batizado|baptism|comunhão|comunhao|gala|black.tie)\\b.*"))
+            return "BLACK-TIE / CERIMÓNIA FORMAL — fato completo ou vestido formal; sem streetwear, casual ou desportivo";
+
+        if (lc.matches(".*\\b(jantar|dinner|restaurante|restaurant|aniversário|aniversario|birthday|festa elegante|gala casual)\\b.*"))
+            return "SMART-CASUAL ELEGANTE — calças bem cortadas/saia, camisa ou blusa, sapatos fechados; sem ténis, hoodies ou joggers";
+
+        if (lc.matches(".*\\b(entrevista|interview|reunião|reuniao|meeting|conferência|conferencia|apresentação|apresentacao|trabalho|work|negócio|negocio|business)\\b.*"))
+            return "PROFISSIONAL / BUSINESS — camisa, blazer ou casaco estruturado, calças formais; aspeto cuidado e neutro";
+
+        if (lc.matches(".*\\b(praia|beach|piscina|pool|verão|verao|summer|festival|outdoor|picnic)\\b.*"))
+            return "CASUAL / VERÃO — roupa leve e respirável; adequado para exterior";
+
+        if (lc.matches(".*\\b(ginásio|ginasio|gym|treino|treinar|workout|corrida|running|desporto|sport|futebol|football|yoga)\\b.*"))
+            return "DESPORTIVO / ACTIVEWEAR — roupa adequada para exercício físico; sem roupa formal";
+
+        if (lc.matches(".*\\b(festa|party|halloween|carnaval|carnival|costume)\\b.*"))
+            return "FESTIVO — look expressivo e divertido; podes ser criativo";
+
+        if (lc.matches(".*\\b(concerto|concert|show|espetáculo|espetaculo|teatro|theatre|cinema)\\b.*"))
+            return "CASUAL-COOL — confortável mas estiloso; evita fato completo";
+
+        return null; // no specific dress code — rely on event name context in prompt
+    }
+
     private String buildPrompt(List<WardrobeItem> items, Map<Long, Double> ragScores, String styleWeights, WeatherData weather, String eventName, List<OutfitHistory> recentHistory, List<OutfitHistory> likedHistory) {
         try {
             var itemNodes = objectMapper.createArrayNode();
@@ -191,11 +242,11 @@ public class OutfitService {
                         .put("color", item.getColor())
                         .put("fit", item.getFit())
                         .put("material", item.getMaterial());
-                
+
                 if (ragScores != null && ragScores.containsKey(item.getId())) {
                     node.put("ragSemanticScore", ragScores.get(item.getId()));
                 }
-                
+
                 String tagsJson = item.getStyleTags() != null ? item.getStyleTags() : "[]";
                 node.set("styleTags", objectMapper.readTree(tagsJson));
                 itemNodes.add(node);
@@ -228,29 +279,45 @@ public class OutfitService {
                 likedOutfitsStr = objectMapper.writeValueAsString(likedArray);
             }
 
-            String eventContext = eventName != null ? "\nCRIAR OUTFITS ESPECÍFICAMENTE PARA O EVENTO: " + eventName + "\nA temática do evento é a principal prioridade na escolha das peças." : "";
+            String eventContext;
+            if (eventName != null) {
+                String dressCode = resolveEventDressCode(eventName);
+                if (dressCode != null) {
+                    eventContext = """
+
+                            EVENTO: %s
+                            DRESS CODE OBRIGATÓRIO: %s
+                            ⚠️ REGRA CRÍTICA: o outfit DEVE respeitar este dress code.
+                            As preferências de estilo do utilizador são SECUNDÁRIAS ao dress code do evento.
+                            Se o utilizador prefere streetwear mas o evento exige formal, escolhe as peças mais formais disponíveis.
+                            """.formatted(eventName, dressCode);
+                } else {
+                    eventContext = "\nEVENTO: " + eventName + "\nAdapta o outfit à temática e contexto deste evento como prioridade principal.\n";
+                }
+            } else {
+                eventContext = "";
+            }
 
             return """
                     És um stylist de moda pessoal. Com base nas preferências de estilo e no armário do utilizador, cria combinações de outfits.%s
                     %s
-                    Preferências de estilo do utilizador (pesos de 0 a 1):
+                    Preferências de estilo do utilizador (pesos de 0 a 1) — respeitar APENAS quando não há dress code de evento:
                     %s
 
-                    Peças disponíveis no armário (ordenadas por relevância semântica/RAG baseada nos gostos do utilizador):
+                    Peças disponíveis no armário (ordenadas por relevância semântica):
                     %s
-                    
-                    RECENT OUTFITS WORN (try to avoid exact repetition if possible, but you MUST generate an outfit even if you have to repeat):
+
+                    OUTFITS USADOS RECENTEMENTE (evita repetição exata se possível, mas TENS de gerar um outfit):
                     %s
-                    
-                    LIKED OUTFITS (user loves these — use as style reference):
+
+                    OUTFITS FAVORITOS (usa como referência de estilo):
                     %s
-                    
-                    If wardrobe is too limited to avoid repetition, just repeat a recent outfit but mention in the description: 'You've been wearing similar combinations — time to add more variety!'.
+
+                    Se o armário for demasiado limitado para evitar repetição, repete mas menciona na descrição que o utilizador devia adicionar mais variedade.
 
                     Cria exatamente 1 outfit completo. Regras:
                     - O outfit deve ter pelo menos uma parte de cima (tops ou jackets) e uma de baixo (bottoms) ou sapatos (shoes)
                     - As peças devem combinar em cor e estilo
-                    - Respeita as preferências de estilo do utilizador
                     - Usa APENAS os IDs das peças da lista acima
                     - O nome e descrição devem ser em português de Portugal
                     - O campo "weatherNote" deve ser uma nota curta (máx. 6 palavras) sobre como o outfit se adequa ao clima atual (ex: "Perfeito para este frio", "Ideal para dia de chuva")

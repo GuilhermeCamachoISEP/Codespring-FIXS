@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { motion } from "framer-motion"
-import { getOutfits, getWardrobe, getWeather, saveOutfitHistory, refineOutfit } from "../services/api"
+import { motion, AnimatePresence } from "framer-motion"
+import { getOutfits, getWardrobe, getWeather, saveOutfitHistory, refineOutfit, markOutfitWorn } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import AppHeader from "../components/AppHeader"
 import { RefreshCw } from "../components/Icons"
@@ -98,9 +98,12 @@ export default function OutfitsPage() {
   const [refinementHistory, setRefinementHistory] = useState([])
   const [refining, setRefining] = useState(false)
   const [refineError, setRefineError] = useState("")
+  const [wornLoading, setWornLoading] = useState(false)
+  const [wornToast, setWornToast] = useState(false)
   const coords = useRef(null)
   const weatherRef = useRef(null)
   const lastSavedOutfitStr = useRef("")
+  const savedHistoryId = useRef(null)   // ID of the OutfitHistory record for the current outfit
 
   weatherRef.current = weather
 
@@ -132,7 +135,20 @@ export default function OutfitsPage() {
       setWeather(cached.weather ?? null)
       setAdvisory(cached.advisory)
       setLoading(false)
-      if (cached.outfit) loadWardrobe()
+      if (cached.outfit) {
+        loadWardrobe()
+        // Save today's cache load as a generated history entry (if not already saved today)
+        const todayKey = new Date().toDateString()
+        const cacheSessionKey = `outfit_saved_${user?.id}_${todayKey}`
+        if (!sessionStorage.getItem(cacheSessionKey)) {
+          saveOutfitHistory(cached.outfit.items)
+            .then(saved => {
+              savedHistoryId.current = saved?.id ?? null
+              sessionStorage.setItem(cacheSessionKey, "1")
+            })
+            .catch(() => {})
+        }
+      }
 
       if (!cached.weather) {
         // Outfit cached without weather (geolocation was denied before) — try now
@@ -211,13 +227,14 @@ export default function OutfitsPage() {
         setWeatherLoading(false)
         setWeatherUnavailable(true)
       }
-      // Auto-save generated outfits asynchronously
+      // Auto-save generated outfit and capture the history record ID
       if (data.outfits && data.outfits.length > 0) {
         const currentOutfitStr = JSON.stringify(data.outfits[0].items)
         if (lastSavedOutfitStr.current !== currentOutfitStr) {
             lastSavedOutfitStr.current = currentOutfitStr;
-            Promise.all(data.outfits.map(o => saveOutfitHistory(o.items)))
-                .catch(e => console.error("Failed to save outfit history", e))
+            saveOutfitHistory(data.outfits[0].items)
+              .then(saved => { savedHistoryId.current = saved?.id ?? null })
+              .catch(e => console.error("Failed to save outfit history", e))
         }
       }
       saveCache(user?.id, single, data.weather ?? null, data.advisory ?? null)
@@ -226,6 +243,8 @@ export default function OutfitsPage() {
         setRefinementHistory([])
         setRefinementInput("")
         setRefineError("")
+        setWornToast(false)
+        savedHistoryId.current = null   // reset; will be set by the auto-save above
       }
     } catch (err) {
       setError("Erro ao gerar outfit: " + err.message)
@@ -309,6 +328,21 @@ export default function OutfitsPage() {
     setRefinementInput("")
     setRefineError("")
     handleRegenerate()
+  }
+
+  async function handleMarkWorn() {
+    if (!savedHistoryId.current || wornLoading || wornToast) return
+    setWornLoading(true)
+    try {
+      await markOutfitWorn(savedHistoryId.current)
+      setWornToast(true)
+      // Also update the refined outfit's history if it was refined
+      setTimeout(() => setWornToast(false), 4000)
+    } catch (err) {
+      console.error("Failed to mark outfit as worn", err)
+    } finally {
+      setWornLoading(false)
+    }
   }
 
   function handleRegenerate() {
@@ -408,6 +442,40 @@ export default function OutfitsPage() {
       {!loading && outfit && (
         <>
           <OutfitCard outfit={outfit} />
+
+          {/* Mark as worn CTA */}
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", margin: "16px 0 4px" }}>
+            <AnimatePresence mode="wait">
+              {wornToast ? (
+                <motion.div
+                  key="toast"
+                  initial={{ opacity: 0, scale: 0.92 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: "8px",
+                    background: "var(--color-success, #22c55e)", color: "#000",
+                    padding: "10px 18px", borderRadius: "999px",
+                    fontSize: "0.9rem", fontWeight: 600
+                  }}
+                >
+                  ✓ Outfit marcado como usado hoje!
+                </motion.div>
+              ) : (
+                <motion.button
+                  key="btn"
+                  className="btn btn-primary"
+                  style={{ display: "flex", alignItems: "center", gap: "8px", borderRadius: "999px", fontSize: "0.9rem" }}
+                  onClick={handleMarkWorn}
+                  disabled={wornLoading || !savedHistoryId.current}
+                  whileTap={{ scale: 0.96 }}
+                >
+                  {wornLoading ? "A guardar…" : "👕 Vesti este outfit hoje"}
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
+
           <OutfitRefineBar
             input={refinementInput}
             onInputChange={setRefinementInput}
@@ -546,12 +614,14 @@ const CATEGORY_SLOT = {
 }
 
 function imgSrc(item) {
-  return item.imageUrl?.startsWith("http")
-    ? item.imageUrl
-    : `http://localhost:8080${item.imageUrl}`
+  if (!item.imageUrl) return null
+  return item.imageUrl.startsWith("http") ? item.imageUrl : `http://localhost:8080${item.imageUrl}`
 }
 
+const CATEGORY_EMOJI = { tops: "👕", bottoms: "👖", shoes: "👟", jackets: "🧥", accessories: "🎩" }
+
 function FlatLayItem({ item, slot, delay = 0 }) {
+  const src = imgSrc(item)
   return (
     <motion.div
       className={`flat-lay-item flat-lay-${slot}`}
@@ -559,7 +629,13 @@ function FlatLayItem({ item, slot, delay = 0 }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 280, damping: 26, delay }}
     >
-      <img src={imgSrc(item)} alt={item.subcategory} loading="lazy" />
+      {src ? (
+        <img src={src} alt={item.subcategory} loading="lazy" />
+      ) : (
+        <div className="item-placeholder" style={{ fontSize: "2.5rem", display: "flex", alignItems: "center", justifyContent: "center", height: "100%", minHeight: "80px" }}>
+          {CATEGORY_EMOJI[item.category] ?? "👔"}
+        </div>
+      )}
       <div className="flat-lay-label">
         <span className="flat-lay-label-name">{item.color} {item.subcategory}</span>
         <span className="tag tag-category">{item.category}</span>

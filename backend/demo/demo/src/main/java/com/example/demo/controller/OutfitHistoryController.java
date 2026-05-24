@@ -27,10 +27,16 @@ public class OutfitHistoryController {
             @RequestHeader("Authorization") String authHeader,
             @RequestBody Map<String, Object> payload) {
         Long userId = jwtService.extractUserId(authHeader.replace("Bearer ", ""));
-        
+
         try {
-            String outfitItemsJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(payload.get("outfitItems"));
-            OutfitHistory saved = historyService.saveOutfit(userId, outfitItemsJson);
+            String outfitItemsJson = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .writeValueAsString(payload.get("outfitItems"));
+            // Optional event name — present when reserving for a calendar event
+            String eventName = payload.containsKey("eventName")
+                    ? String.valueOf(payload.get("eventName"))
+                    : null;
+            if ("null".equals(eventName) || "".equals(eventName)) eventName = null;
+            OutfitHistory saved = historyService.saveOutfit(userId, outfitItemsJson, eventName);
             return ResponseEntity.ok(saved);
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
@@ -56,5 +62,21 @@ public class OutfitHistoryController {
         Long userId = jwtService.extractUserId(authHeader.replace("Bearer ", ""));
         historyService.toggleLike(id, userId);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/reserved")
+    public ResponseEntity<List<OutfitHistory>> getEventOutfits(
+            @RequestHeader("Authorization") String authHeader) {
+        Long userId = jwtService.extractUserId(authHeader.replace("Bearer ", ""));
+        return ResponseEntity.ok(historyService.getEventOutfits(userId));
+    }
+
+    @PatchMapping("/{id}/worn")
+    public ResponseEntity<OutfitHistory> markAsWorn(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id) {
+        Long userId = jwtService.extractUserId(authHeader.replace("Bearer ", ""));
+        OutfitHistory updated = historyService.markAsWorn(id, userId);
+        return ResponseEntity.ok(updated);
     }
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import { useSearchParams, useNavigate } from "react-router-dom"
-import { getOutfitsForEvent, reserveOutfit } from "../services/api"
+import { getOutfitsForEvent, reserveOutfit, saveOutfitHistoryForEvent } from "../services/api"
 import AppHeader from "../components/AppHeader"
 import { RefreshCw } from "../components/Icons"
 
@@ -51,8 +51,10 @@ export default function EventOutfits() {
   async function handleReserve(outfit, index) {
     setReservingId(index)
     try {
-      const itemIds = outfit.items.map(i => i.id)
+      const itemIds = outfit.items.map(i => i.id).filter(Boolean)
       await reserveOutfit(eventName, eventDate, itemIds)
+      // Save to lookbook history so it appears in the "Reservados" tab
+      await saveOutfitHistoryForEvent(outfit.items, eventName).catch(() => {})
       setToastMessage("Outfit reservado! Estas peças não aparecerão nas tuas sugestões de " + eventDate)
       setTimeout(() => navigate("/dashboard"), 2500)
     } catch (err) {
@@ -144,7 +146,15 @@ const CATEGORY_SLOT = {
   shoes:       "shoes",
 }
 
+const CATEGORY_EMOJI = { tops: "👕", bottoms: "👖", shoes: "👟", jackets: "🧥", accessories: "🎩" }
+
+function itemImgSrc(item) {
+  if (!item.imageUrl) return null
+  return item.imageUrl.startsWith("http") ? item.imageUrl : `http://localhost:8080${item.imageUrl}`
+}
+
 function FlatLayItem({ item, slot, delay = 0 }) {
+  const src = itemImgSrc(item)
   return (
     <motion.div
       className={`flat-lay-item flat-lay-${slot}`}
@@ -152,7 +162,13 @@ function FlatLayItem({ item, slot, delay = 0 }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 280, damping: 26, delay }}
     >
-      <img src={`http://localhost:8080${item.imageUrl}`} alt={item.subcategory} loading="lazy" />
+      {src ? (
+        <img src={src} alt={item.subcategory} loading="lazy" />
+      ) : (
+        <div className="item-placeholder" style={{ fontSize: "2.5rem", display: "flex", alignItems: "center", justifyContent: "center", height: "100%", minHeight: "80px" }}>
+          {CATEGORY_EMOJI[item.category] ?? "👔"}
+        </div>
+      )}
       <div className="flat-lay-label">
         <span className="flat-lay-label-name">{item.color} {item.subcategory}</span>
         <span className="tag tag-category">{item.category}</span>

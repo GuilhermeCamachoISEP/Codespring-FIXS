@@ -33,7 +33,17 @@ export default function ChatPage() {
         setLoading(true)
 
         try {
-            const history = messages.filter(m => m.role !== "model" || !m.content.startsWith("Olá! Sou o teu assistente de armário"))
+            // Strip ```json blocks from AI history before sending — prevents the AI from
+            // re-emitting previously-confirmed items in the new turn and double-saving them.
+            const history = messages
+                .filter(m => m.role !== "model" || !m.content.startsWith("Olá! Sou o teu assistente de armário"))
+                .map(m => {
+                    if (m.role !== "model") return m
+                    const stripped = m.content.includes("```json")
+                        ? (m.content.split("```json")[0].trim() || "Armário atualizado!")
+                        : m.content
+                    return { ...m, content: stripped }
+                })
             
             // Get location if possible for context
             let lat = null, lon = null

@@ -81,6 +81,25 @@ public class ClaudeService {
                 && apiKey.length() > 20;
     }
 
+    /** Quick connectivity test — sends a tiny request to Groq and reports status. */
+    public String testConnection() {
+        if (!isConfigured()) return "NOT_CONFIGURED";
+        try {
+            String body = buildTextRequestBody("Reply with the single word: ok", 0.0, 5);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(GROQ_URL))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) return "OK";
+            return "HTTP_" + response.statusCode() + ": " + response.body();
+        } catch (Exception e) {
+            return "EXCEPTION: " + e.getMessage();
+        }
+    }
+
     public String getModel() {
         return TEXT_MODEL;
     }
@@ -219,7 +238,10 @@ public class ClaudeService {
 
     public String generateJson(String prompt) {
         try {
-            if (!isConfigured()) return "[]";
+            if (!isConfigured()) {
+                System.err.println("[ClaudeService] generateJson: NOT configured — GROQ_API_KEY is missing or blank.");
+                return "[]";
+            }
 
             String body = buildTextRequestBody(prompt, 0.3, 2048);
 
@@ -336,10 +358,12 @@ public class ClaudeService {
     /**
      * Multi-turn chat: system prompt + conversation history + new user message.
      * Handles the Gemini "model" role name by mapping it to "assistant" for Groq.
+     * Returns a String starting with "__GROQ_ERROR__:" when the API call fails, so
+     * callers can distinguish AI text from infrastructure errors.
      */
     public String chat(String systemPrompt, java.util.List<ChatRequest.ChatMessage> history, String userMessage) {
         try {
-            if (!isConfigured()) return "AI não configurado. Verifica a GROQ_API_KEY.";
+            if (!isConfigured()) return "__GROQ_ERROR__:NOT_CONFIGURED — define GROQ_API_KEY no backend.";
 
             var messagesArray = objectMapper.createArrayNode();
 
@@ -381,16 +405,33 @@ public class ClaudeService {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() != 200) {
-                System.err.println("Groq chat error " + response.statusCode() + ": " + response.body());
-                return "Erro ao comunicar com o AI. Tenta novamente.";
+                String groqErr = response.body();
+                System.err.println("Groq chat error " + response.statusCode() + ": " + groqErr);
+                return "__GROQ_ERROR__:HTTP " + response.statusCode() + " — " + groqErr;
             }
 
             return extractGroqText(response.body());
 
         } catch (Exception e) {
             System.err.println("Groq chat failed: " + e.getMessage());
-            return "Erro interno do AI.";
+            return "__GROQ_ERROR__:EXCEPTION — " + e.getMessage();
         }
+    }
+
+    /** True when the string is a Groq infrastructure error (not AI content). */
+    public static boolean isGroqError(String s) {
+        return s != null && s.startsWith("__GROQ_ERROR__:");
+    }
+
+    /** Human-readable Portuguese message extracted from a Groq error marker. */
+    public static String groqErrorMessage(String s) {
+        if (s == null) return "Erro desconhecido.";
+        String detail = s.replace("__GROQ_ERROR__:", "").trim();
+        if (detail.startsWith("NOT_CONFIGURED")) return "AI não configurado. Define a GROQ_API_KEY no backend.";
+        if (detail.startsWith("HTTP 401")) return "Chave da API Groq inválida ou expirada (401). Atualiza a GROQ_API_KEY no application.properties.";
+        if (detail.startsWith("HTTP 429")) return "Limite de pedidos Groq atingido (429). Aguarda um momento e tenta novamente.";
+        if (detail.startsWith("HTTP 503") || detail.startsWith("HTTP 502")) return "Serviço Groq temporariamente indisponível. Tenta novamente em breve.";
+        return "Erro de comunicação com o AI: " + detail;
     }
 
     // ─── Response parsing ─────────────────────────────────────────────────────

@@ -774,6 +774,46 @@ a { text-decoration: none; color: inherit; }
 .wardrobe-item-name { font-size: 0.73rem; font-weight: 500; display: block; }
 .wardrobe-item-cat { font-size: 0.65rem; color: rgba(255,255,255,0.65); text-transform: capitalize; }
 
+/* ─── Wardrobe "last used" indicators ───────────────────────────── */
+.wardrobe-used-label {
+  font-size: 0.62rem;
+  color: var(--color-success, #22c55e);
+  display: block;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.wardrobe-used-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: 999px;
+  z-index: 2;
+}
+
+.wardrobe-used-today {
+  background: var(--color-success, #22c55e);
+  color: #000;
+}
+
+/* ─── Lookbook worn / generated visual distinction ──────────────── */
+.worn-card {
+  border-left: 3px solid var(--color-success, #22c55e);
+}
+
+.generated-card {
+  opacity: 0.85;
+}
+
+/* ─── CSS success colour token ──────────────────────────────────── */
+:root { --color-success: #22c55e; }
+[data-theme="dark"] { --color-success: #4ade80; }
+
 /* Tags */
 .item-tags { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.35rem; }
 

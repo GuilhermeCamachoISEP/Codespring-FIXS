@@ -23,7 +23,8 @@
       "Bash(del \"C:\\\\Users\\\\renat\\\\IdeaProjects\\\\Codespring-FIXS\\\\backend\\\\demo\\\\demo\\\\src\\\\main\\\\java\\\\com\\\\example\\\\demo\\\\service\\\\PinterestService.java\")",
       "Bash(del \"C:\\\\Users\\\\renat\\\\IdeaProjects\\\\Codespring-FIXS\\\\backend\\\\demo\\\\demo\\\\src\\\\main\\\\java\\\\com\\\\example\\\\demo\\\\controller\\\\PinterestController.java\")",
       "Bash(del \"C:\\\\Users\\\\renat\\\\IdeaProjects\\\\Codespring-FIXS\\\\backend\\\\demo\\\\demo\\\\src\\\\main\\\\java\\\\com\\\\example\\\\demo\\\\dto\\\\PinterestBoard.java\")",
-      "Bash(del \"C:\\\\Users\\\\renat\\\\IdeaProjects\\\\Codespring-FIXS\\\\backend\\\\demo\\\\demo\\\\src\\\\main\\\\java\\\\com\\\\example\\\\demo\\\\dto\\\\PinterestPin.java\")"
+      "Bash(del \"C:\\\\Users\\\\renat\\\\IdeaProjects\\\\Codespring-FIXS\\\\backend\\\\demo\\\\demo\\\\src\\\\main\\\\java\\\\com\\\\example\\\\demo\\\\dto\\\\PinterestPin.java\")",
+      "Bash(npx vite *)"
     ]
   }
 }

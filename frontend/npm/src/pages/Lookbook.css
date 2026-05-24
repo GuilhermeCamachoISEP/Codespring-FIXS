@@ -214,3 +214,12 @@
   margin-right: 6px;
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
+
+/* Reserved (event) card — purple left border */
+.lookbook-card.reserved-card {
+  border-left: 3px solid var(--color-primary, #7c3aed);
+  opacity: 0.92;
+}
+.lookbook-card.reserved-card::before {
+  background: linear-gradient(90deg, #7c3aed, #a78bfa);
+}

@@ -46,6 +46,10 @@ public class WardrobeItem {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    /** Data em que esta peça foi usada pela última vez num outfit marcado como "usado". */
+    @Column(name = "last_used_at")
+    private java.time.LocalDate lastUsedAt;
+
     @PrePersist
     void prePersist() {
         createdAt = LocalDateTime.now();

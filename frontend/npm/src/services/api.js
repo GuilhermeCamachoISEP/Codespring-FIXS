@@ -144,10 +144,35 @@ export async function getLikedOutfits() {
     return res.json()
 }
 
+export async function getReservedOutfits() {
+    const res = await fetch(`${API_URL}/outfits/history/reserved`, { headers: authHeaders() })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+}
+
+export async function saveOutfitHistoryForEvent(outfitItems, eventName) {
+    const res = await fetch(`${API_URL}/outfits/history`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ outfitItems, eventName })
+    })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+}
+
 export async function toggleOutfitLike(id) {
-    const res = await fetch(`${API_URL}/outfits/history/${id}/like`, { 
+    const res = await fetch(`${API_URL}/outfits/history/${id}/like`, {
         method: "PATCH",
-        headers: authHeaders() 
+        headers: authHeaders()
+    })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+}
+
+export async function markOutfitWorn(id) {
+    const res = await fetch(`${API_URL}/outfits/history/${id}/worn`, {
+        method: "PATCH",
+        headers: authHeaders()
     })
     if (!res.ok) throw new Error(await res.text())
     return res.json()

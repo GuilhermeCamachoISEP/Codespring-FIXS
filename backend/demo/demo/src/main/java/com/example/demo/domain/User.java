@@ -39,6 +39,7 @@ public class User {
 
     // Boolean wrapper (not primitive) so legacy NULL rows are handled safely
     @Column(name = "pinterest_connected")
+    @Builder.Default
     private Boolean pinterestConnected = false;
 
     @PrePersist

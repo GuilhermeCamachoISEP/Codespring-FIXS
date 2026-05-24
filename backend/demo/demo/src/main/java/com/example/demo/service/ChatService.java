@@ -72,6 +72,11 @@ public class ChatService {
         String response = claudeService.chat(systemPrompt, request.getHistory(), request.getMessage());
         System.out.println("[DEBUG-CHAT] Raw response from AI:\n" + response);
 
+        // Surface Groq infrastructure errors directly instead of showing raw error markers
+        if (ClaudeService.isGroqError(response)) {
+            return new ChatResponse(ClaudeService.groqErrorMessage(response), null);
+        }
+
         response = extractAndSaveItems(userId, response);
         System.out.println("[DEBUG-CHAT] Cleaned response to user:\n" + response);
 
@@ -109,13 +114,23 @@ public class ChatService {
         String raw = claudeService.chat(systemPrompt, request.getHistory(), request.getMessage());
         System.out.println("[DEBUG-CHAT] Raw outfit-refine response:\n" + raw);
 
+        // Surface Groq infrastructure errors directly to the user
+        if (ClaudeService.isGroqError(raw)) {
+            return new ChatResponse(ClaudeService.groqErrorMessage(raw), List.of());
+        }
+
         String jsonPayload = extractOutfitJsonPayload(raw);
         if (!jsonPayload.trim().startsWith("[")) {
             jsonPayload = "[" + jsonPayload + "]";
         }
         List<OutfitSuggestion> refined = outfitService.parseOutfitSuggestions(jsonPayload, wardrobe);
         if (refined.isEmpty()) {
-            return new ChatResponse("Não consegui aplicar o refinamento. Tenta reformular a instrução.", List.of());
+            // The AI responded but not with valid outfit JSON — show what it actually said
+            String fallbackMsg = (raw != null && !raw.isBlank()
+                    && !raw.trim().startsWith("[") && !raw.trim().startsWith("{"))
+                    ? raw   // plain-text AI response — show it
+                    : "Não consegui aplicar o refinamento. Tenta reformular a instrução.";
+            return new ChatResponse(fallbackMsg, List.of());
         }
 
         OutfitSuggestion merged = mergeRefinedOutfit(currentOutfit, refined.get(0), request.getMessage());
@@ -490,10 +505,18 @@ public class ChatService {
         // Handling confirms
         if (node.has("confirmed") && node.get("confirmed").isArray()) {
             System.out.println("[DEBUG-CHAT] Found " + node.get("confirmed").size() + " confirmed items.");
+            // Deduplication window: ignore items already added in the last 5 minutes
+            java.time.LocalDateTime recentCutoff = java.time.LocalDateTime.now().minusMinutes(5);
             for (JsonNode itemNode : node.get("confirmed")) {
                 String itemName = itemNode.isObject() ? (itemNode.has("name") ? itemNode.get("name").asText() : itemNode.toString()) : itemNode.asText();
                 if (itemName == null || itemName.trim().isEmpty()) {
                     System.out.println("[DEBUG-CHAT] Skipping empty itemName (likely JSON formatting error)");
+                    continue;
+                }
+                String category = itemNode.isObject() && itemNode.has("category") ? itemNode.get("category").asText() : "tops";
+                // Guard: skip if the same item was already saved in the last 5 minutes (double-send protection)
+                if (wardrobeItemRepository.existsRecentDuplicate(userId, itemName, category, recentCutoff)) {
+                    System.out.println("[DEBUG-CHAT] Skipping duplicate (added <5min ago): " + itemName);
                     continue;
                 }
                 System.out.println("[DEBUG-CHAT] Processing item: " + itemName);
@@ -509,7 +532,6 @@ public class ChatService {
                     System.out.println("[DEBUG-CHAT] SerpApi SUCCESS, url: " + imageUrl);
                 }
 
-                String category = itemNode.isObject() && itemNode.has("category") ? itemNode.get("category").asText() : "tops";
                 String color = itemNode.isObject() && itemNode.has("color") ? itemNode.get("color").asText() : "";
                 
                 WardrobeItem newItem = WardrobeItem.builder()
