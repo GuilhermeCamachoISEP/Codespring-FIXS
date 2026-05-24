@@ -29,10 +29,11 @@ public class UserService {
                 .email(req.getEmail())
                 .password(passwordEncoder.encode(req.getPassword()))
                 .name(req.getName())
+                .gender(req.getGender())
                 .build();
         userRepository.save(user);
         String token = jwtService.generateToken(user.getId(), user.getEmail());
-        return new AuthResponse(token, user.getId(), user.getEmail(), user.getName());
+        return new AuthResponse(token, user.getId(), user.getEmail(), user.getName(), user.getGender());
     }
 
     public AuthResponse login(LoginRequest req) {
@@ -42,6 +43,6 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
         String token = jwtService.generateToken(user.getId(), user.getEmail());
-        return new AuthResponse(token, user.getId(), user.getEmail(), user.getName());
+        return new AuthResponse(token, user.getId(), user.getEmail(), user.getName(), user.getGender());
     }
 }
