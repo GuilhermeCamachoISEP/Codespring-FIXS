@@ -1396,3 +1396,240 @@ a { text-decoration: none; color: inherit; }
   .inspiration-grid { grid-template-columns: repeat(2, 1fr); }
   .pinterest-boards-grid { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE — breakpoint ≤ 640px
+   Desktop layout is fully preserved above this width.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Bottom nav bar (mobile-only component) ─────────────────── */
+.mobile-bottom-nav {
+  display: none; /* hidden on desktop */
+}
+
+.mobile-header-actions {
+  display: none; /* shown only on mobile */
+}
+
+@media (max-width: 640px) {
+
+  /* ── Layout ─────────────────────────────────────────────────── */
+  .app-container {
+    padding: 16px 14px 90px; /* extra bottom padding for the nav bar */
+    max-width: 100%;
+  }
+
+  /* ── Header ─────────────────────────────────────────────────── */
+  .header {
+    margin-bottom: 20px;
+    gap: 8px;
+  }
+
+  /* Hide the desktop nav on mobile */
+  .desktop-nav {
+    display: none !important;
+  }
+
+  /* Show the compact mobile actions (theme + profile) */
+  .mobile-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* ── Bottom navigation bar ──────────────────────────────────── */
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    padding: 6px 0 max(10px, env(safe-area-inset-bottom));
+    /* safe-area for iPhone notch/home-indicator */
+  }
+
+  .mobile-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 2px;
+    color: var(--color-text-muted);
+    font-size: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    transition: color var(--transition);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-nav-item.active {
+    color: var(--color-accent);
+  }
+
+  .mobile-nav-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobile-nav-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .mobile-nav-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  /* ── Page headers ───────────────────────────────────────────── */
+  .page-title { font-size: 1.5rem; }
+  .page-subtitle { font-size: 0.82rem; }
+
+  .wardrobe-top-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .wardrobe-top-row > div:last-child {
+    flex-wrap: wrap;
+  }
+
+  /* ── Weather + calendar side by side → stacked ──────────────── */
+  .outfits-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  /* ── Wardrobe grid: 2 columns ───────────────────────────────── */
+  .wardrobe-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  /* ── Wardrobe filters: horizontal scroll ────────────────────── */
+  .wardrobe-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    gap: 6px;
+    scrollbar-width: none;
+  }
+  .wardrobe-filters::-webkit-scrollbar { display: none; }
+
+  .filter-chip {
+    flex-shrink: 0;
+    padding: 7px 14px;
+    font-size: 12px;
+  }
+
+  /* ── Outfit card: full width ────────────────────────────────── */
+  .outfit-card {
+    max-width: 100%;
+  }
+
+  .flat-lay-grid {
+    gap: 7px;
+    padding: 8px 10px 12px;
+  }
+
+  /* ── Buttons: larger touch targets ─────────────────────────── */
+  .btn, .btn-primary, .btn-secondary {
+    min-height: 44px;
+  }
+
+  .search-input {
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
+
+  /* ── Lookbook tabs: horizontal scroll ──────────────────────── */
+  .lookbook-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    gap: 0;
+  }
+  .lookbook-tabs::-webkit-scrollbar { display: none; }
+
+  .lookbook-tab {
+    flex-shrink: 0;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.75rem;
+  }
+
+  /* ── Lookbook grid: 1 column on phone ──────────────────────── */
+  .lookbook-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* ── Detail overlay: full screen on mobile ──────────────────── */
+  .detail-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .detail-panel {
+    max-width: 100%;
+    border-radius: var(--radius) var(--radius) 0 0;
+    max-height: 88vh;
+    padding: 1.25rem 1rem;
+  }
+
+  /* ── Auth card: less padding ────────────────────────────────── */
+  .auth-card {
+    padding: 1.75rem 1.25rem;
+    border-radius: var(--radius-sm);
+  }
+
+  /* ── Onboarding ─────────────────────────────────────────────── */
+  .onboarding-container {
+    padding: 1.25rem 1rem;
+  }
+  .onboarding-header h1 { font-size: 1.5rem; }
+
+  .style-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* ── Search bar: full width ─────────────────────────────────── */
+  .search-wrapper {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  /* ── Packing page ───────────────────────────────────────────── */
+  .wardrobe-item-label {
+    padding: 1rem 0.5rem 0.5rem;
+  }
+  .wardrobe-item-name { font-size: 0.68rem; }
+
+  /* ── AI pulse loading ───────────────────────────────────────── */
+  .loading-state, .empty-state {
+    padding: 2.5rem 1rem;
+  }
+}
+
+/* ── Tablet tweaks (641–900px) ──────────────────────────────── */
+@media (min-width: 641px) and (max-width: 900px) {
+  .app-container { padding: 24px 20px 48px; }
+  .wardrobe-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .lookbook-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── Prevent iOS bounce/overscroll on fixed elements ─────────── */
+@supports (-webkit-touch-callout: none) {
+  .mobile-bottom-nav {
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+}

@@ -1,5 +1,6 @@
+// Para demo mobile: substitui pelo IP do teu PC (ex: "http://192.168.1.75:8080")
+// Para desenvolvimento normal: "http://localhost:8080"
 const API_URL = "http://localhost:8080"
-
 function getToken() {
     return localStorage.getItem("token")
 }
