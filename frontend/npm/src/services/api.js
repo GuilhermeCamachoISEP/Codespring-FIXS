@@ -11,11 +11,11 @@ function authHeaders() {
     }
 }
 
-export async function register(email, password, name) {
+export async function register(email, password, name, gender) {
     const res = await fetch(`${API_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name })
+        body: JSON.stringify({ email, password, name, gender })
     })
     if (!res.ok) throw new Error(await res.text())
     return res.json()

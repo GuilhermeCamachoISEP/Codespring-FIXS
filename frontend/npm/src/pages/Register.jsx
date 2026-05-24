@@ -7,6 +7,7 @@ export default function Register() {
     const [name, setName] = useState("")
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
+    const [gender, setGender] = useState("Prefiro não dizer")
     const [error, setError] = useState("")
     const [loading, setLoading] = useState(false)
     const { saveAuth } = useAuth()
@@ -17,7 +18,7 @@ export default function Register() {
         setError("")
         setLoading(true)
         try {
-            const data = await register(email, password, name)
+            const data = await register(email, password, name, gender)
             saveAuth(data)
             navigate("/onboarding/styles")
         } catch (err) {
@@ -52,6 +53,19 @@ export default function Register() {
                             placeholder="email@exemplo.com"
                             required
                         />
+                    </div>
+                    <div className="form-group">
+                        <label>Género</label>
+                        <select
+                            className="search-input"
+                            style={{ padding: "12px", borderRadius: "8px" }}
+                            value={gender}
+                            onChange={e => setGender(e.target.value)}
+                        >
+                            <option value="Prefiro não dizer">Prefiro não dizer</option>
+                            <option value="Homem">Homem</option>
+                            <option value="Mulher">Mulher</option>
+                        </select>
                     </div>
                     <div className="form-group">
                         <label>Password</label>
