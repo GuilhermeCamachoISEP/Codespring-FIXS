@@ -27,7 +27,7 @@ export default function AppHeader() {
   return (
     <header className="header">
       <div className="logo" onClick={() => navigate(user ? "/outfits" : "/")}>
-        Gaveta
+        gaveta.
       </div>
 
       <nav className="nav">

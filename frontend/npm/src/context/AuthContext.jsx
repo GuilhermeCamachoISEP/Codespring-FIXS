@@ -13,14 +13,17 @@ export function AuthProvider({ children }) {
         localStorage.setItem("user", JSON.stringify({
             id: authData.userId,
             email: authData.email,
-            name: authData.name
+            name: authData.name,
+            gender: authData.gender || "Prefiro não dizer"
         }))
-        setUser({ id: authData.userId, email: authData.email, name: authData.name })
+        localStorage.setItem("gender", authData.gender || "Prefiro não dizer")
+        setUser({ id: authData.userId, email: authData.email, name: authData.name, gender: authData.gender || "Prefiro não dizer" })
     }
 
     function logout() {
         localStorage.removeItem("token")
         localStorage.removeItem("user")
+        localStorage.removeItem("gender")
         localStorage.removeItem("stylist_outfit_cache")
         setUser(null)
     }

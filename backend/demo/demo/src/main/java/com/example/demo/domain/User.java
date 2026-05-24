@@ -24,6 +24,9 @@ public class User {
 
     private String name;
 
+    @Column(name = "gender")
+    private String gender;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
