@@ -134,8 +134,15 @@ export async function saveOutfitHistory(outfitItems) {
 
 export async function getWeather(lat, lon) {
     const res = await fetch(`${API_URL}/weather?lat=${lat}&lon=${lon}`, { headers: authHeaders() })
-    if (!res.ok) throw new Error(await res.text())
-    return res.json()
+    if (!res.ok) {
+        const message = await res.text()
+        throw new Error(message || `Weather request failed (${res.status})`)
+    }
+    const data = await res.json()
+    if (!data || data.temperature == null) {
+        throw new Error("Weather data unavailable")
+    }
+    return data
 }
 
 export async function getTransactions() {

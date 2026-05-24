@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
-import { getOutfits, getWardrobe, saveOutfitHistory, refineOutfit } from "../services/api"
+import { getOutfits, getWardrobe, getWeather, saveOutfitHistory, refineOutfit } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import AppHeader from "../components/AppHeader"
 import { RefreshCw } from "../components/Icons"
@@ -54,7 +54,31 @@ const LOADING_MESSAGES = [
   "A verificar os teus eventos...",
   "A cruzar com o teu armário...",
   "A aplicar o teu Style DNA 🧬..."
-];
+]
+
+const GEO_TIMEOUT_MS = 8000
+const WEATHER_TIMEOUT_MS = 8000
+
+function resolveGeolocation(timeoutMs = GEO_TIMEOUT_MS) {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve({ lat: null, lon: null })
+      return
+    }
+    const timer = setTimeout(() => resolve({ lat: null, lon: null }), timeoutMs)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        clearTimeout(timer)
+        resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude })
+      },
+      () => {
+        clearTimeout(timer)
+        resolve({ lat: null, lon: null })
+      },
+      { timeout: timeoutMs, maximumAge: 300000, enableHighAccuracy: false }
+    )
+  })
+}
 
 export default function OutfitsPage() {
   const { user } = useAuth()
@@ -62,6 +86,8 @@ export default function OutfitsPage() {
   const [weather, setWeather]   = useState(null)
   const [advisory, setAdvisory] = useState(null)
   const [loading, setLoading]   = useState(true)
+  const [weatherLoading, setWeatherLoading] = useState(false)
+  const [weatherUnavailable, setWeatherUnavailable] = useState(false)
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0)
   const [regenerating, setRegenerating] = useState(false)
   const [error, setError]       = useState("")
@@ -71,7 +97,10 @@ export default function OutfitsPage() {
   const [refining, setRefining] = useState(false)
   const [refineError, setRefineError] = useState("")
   const coords = useRef(null)
+  const weatherRef = useRef(null)
   const lastSavedOutfitStr = useRef("")
+
+  weatherRef.current = weather
 
   useEffect(() => {
     let interval;
@@ -83,13 +112,25 @@ export default function OutfitsPage() {
     return () => clearInterval(interval);
   }, [loading, regenerating]);
 
+  // Fallback: never leave weather bar stuck on "A obter clima..."
+  useEffect(() => {
+    if (!weatherLoading) return
+    const timer = setTimeout(() => {
+      setWeatherLoading(false)
+      if (!weatherRef.current) setWeatherUnavailable(true)
+    }, WEATHER_TIMEOUT_MS)
+    return () => clearTimeout(timer)
+  }, [weatherLoading])
+
   // On mount: serve cache immediately, only hit the API if nothing is cached
   useEffect(() => {
     const cached = loadCache(user?.id)
     if (cached) {
       setOutfit(cached.outfit)
-      setWeather(cached.weather)
+      setWeather(cached.weather ?? null)
       setAdvisory(cached.advisory)
+      setWeatherLoading(false)
+      setWeatherUnavailable(!cached.weather)
       setLoading(false)
       if (cached.outfit) loadWardrobe()
       return
@@ -97,31 +138,66 @@ export default function OutfitsPage() {
     requestGeolocationThenFetch(false)
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function requestGeolocationThenFetch(isRegen) {
-    if (!navigator.geolocation) {
-      fetchOutfit(null, null, isRegen)
+  async function requestGeolocationThenFetch(isRegen) {
+    setWeatherLoading(true)
+    setWeatherUnavailable(false)
+    const { lat, lon } = await resolveGeolocation(GEO_TIMEOUT_MS)
+    if (lat != null && lon != null) {
+      coords.current = { lat, lon }
+    } else {
+      coords.current = null
+    }
+    await fetchOutfit(lat, lon, isRegen)
+  }
+
+  async function fetchWeather(lat, lon) {
+    if (lat == null || lon == null) {
+      setWeatherLoading(false)
+      setWeatherUnavailable(true)
       return
     }
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        coords.current = { lat: pos.coords.latitude, lon: pos.coords.longitude }
-        fetchOutfit(coords.current.lat, coords.current.lon, isRegen)
-      },
-      () => fetchOutfit(null, null, isRegen),
-      { timeout: 6000 }
-    )
+    setWeatherLoading(true)
+    try {
+      const data = await getWeather(lat, lon)
+      setWeather(data)
+      setWeatherUnavailable(false)
+    } catch (err) {
+      console.warn("Weather fetch failed:", err.message)
+      setWeatherUnavailable(true)
+    } finally {
+      setWeatherLoading(false)
+    }
+  }
+
+  function applyWeatherFromOutfitsResponse(data) {
+    if (data.weather) {
+      setWeather(data.weather)
+      setWeatherUnavailable(false)
+      setWeatherLoading(false)
+      return true
+    }
+    return false
   }
 
   async function fetchOutfit(lat, lon, isRegen = false) {
     isRegen ? setRegenerating(true) : setLoading(true)
+    if (!isRegen) {
+      setWeatherLoading(true)
+      setWeatherUnavailable(false)
+    }
     setLoadingMsgIdx(0)
     setError("")
     try {
       const data = await getOutfits(lat, lon)
       const single = (data.outfits ?? [])[0] ?? null
       setOutfit(single)
-      setWeather(data.weather ?? null)
       setAdvisory(data.advisory ?? null)
+      if (!applyWeatherFromOutfitsResponse(data) && lat != null && lon != null) {
+        fetchWeather(lat, lon)
+      } else if (!data.weather) {
+        setWeatherLoading(false)
+        setWeatherUnavailable(true)
+      }
       // Auto-save generated outfits asynchronously
       if (data.outfits && data.outfits.length > 0) {
         const currentOutfitStr = JSON.stringify(data.outfits[0].items)
@@ -240,7 +316,12 @@ export default function OutfitsPage() {
 
       <div style={{ display: "flex", gap: "16px", marginBottom: "16px", flexWrap: "wrap", alignItems: "stretch" }}>
         <div style={{ flex: "2 1 400px", minWidth: 0 }}>
-          {weather ? <WeatherBar weather={weather} advisory={advisory} /> : <div className="weather-advisory" style={{ padding: "1.5rem" }}>A obter clima...</div>}
+          <WeatherSection
+            weather={weather}
+            advisory={advisory}
+            loading={weatherLoading}
+            unavailable={weatherUnavailable}
+          />
         </div>
         <div style={{ flex: "1 1 250px", minWidth: 0 }}>
           <GoogleCalendar />
@@ -316,6 +397,31 @@ export default function OutfitsPage() {
           />
         </>
       )}
+    </div>
+  )
+}
+
+function WeatherSection({ weather, advisory, loading, unavailable }) {
+  if (weather) {
+    return <WeatherBar weather={weather} advisory={advisory} />
+  }
+  if (loading) {
+    return (
+      <div className="weather-advisory" style={{ padding: "1.5rem" }}>
+        A obter clima…
+      </div>
+    )
+  }
+  if (unavailable) {
+    return (
+      <div className="weather-advisory" style={{ padding: "1.5rem", color: "var(--color-text-muted)" }}>
+        Clima indisponível
+      </div>
+    )
+  }
+  return (
+    <div className="weather-advisory" style={{ padding: "1.5rem", color: "var(--color-text-muted)" }}>
+      Clima indisponível
     </div>
   )
 }

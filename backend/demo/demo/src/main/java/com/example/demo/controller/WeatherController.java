@@ -20,6 +20,13 @@ public class WeatherController {
     public ResponseEntity<WeatherData> getWeather(
             @RequestParam double lat,
             @RequestParam double lon) {
-        return ResponseEntity.ok(weatherService.getWeather(lat, lon));
+        if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+            return ResponseEntity.badRequest().build();
+        }
+        WeatherData data = weatherService.getWeather(lat, lon);
+        if (data == null) {
+            return ResponseEntity.status(503).build();
+        }
+        return ResponseEntity.ok(data);
     }
 }
