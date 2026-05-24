@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
-import { getOutfits, saveOutfitHistory } from "../services/api"
+import { getOutfits, getWardrobe, saveOutfitHistory, refineOutfit } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import AppHeader from "../components/AppHeader"
 import { RefreshCw } from "../components/Icons"
@@ -65,6 +65,11 @@ export default function OutfitsPage() {
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0)
   const [regenerating, setRegenerating] = useState(false)
   const [error, setError]       = useState("")
+  const [wardrobeItems, setWardrobeItems] = useState([])
+  const [refinementInput, setRefinementInput] = useState("")
+  const [refinementHistory, setRefinementHistory] = useState([])
+  const [refining, setRefining] = useState(false)
+  const [refineError, setRefineError] = useState("")
   const coords = useRef(null)
   const lastSavedOutfitStr = useRef("")
 
@@ -86,6 +91,7 @@ export default function OutfitsPage() {
       setWeather(cached.weather)
       setAdvisory(cached.advisory)
       setLoading(false)
+      if (cached.outfit) loadWardrobe()
       return
     }
     requestGeolocationThenFetch(false)
@@ -126,6 +132,12 @@ export default function OutfitsPage() {
         }
       }
       saveCache(user?.id, single, data.weather ?? null, data.advisory ?? null)
+      if (single) {
+        loadWardrobe()
+        setRefinementHistory([])
+        setRefinementInput("")
+        setRefineError("")
+      }
     } catch (err) {
       setError("Erro ao gerar outfit: " + err.message)
     } finally {
@@ -134,8 +146,87 @@ export default function OutfitsPage() {
     }
   }
 
+  async function loadWardrobe() {
+    try {
+      const items = await getWardrobe()
+      setWardrobeItems(items)
+    } catch (err) {
+      console.error("Failed to load wardrobe for refine", err)
+    }
+  }
+
+  function parseRefinedOutfit(data) {
+    if (data.outfits?.[0]) return data.outfits[0]
+    const raw = data.response?.trim()
+    if (!raw) return null
+    try {
+      let json = raw
+      if (raw.includes("```json")) {
+        json = raw.split("```json")[1].split("```")[0].trim()
+      } else if (raw.includes("```")) {
+        json = raw.split("```")[1].split("```")[0].trim()
+      } else {
+        const start = raw.indexOf("[")
+        const end = raw.lastIndexOf("]")
+        if (start >= 0 && end > start) json = raw.slice(start, end + 1)
+      }
+      const parsed = JSON.parse(json)
+      const arr = Array.isArray(parsed) ? parsed : [parsed]
+      return arr[0] ?? null
+    } catch {
+      return null
+    }
+  }
+
+  async function handleRefine(e) {
+    e.preventDefault()
+    if (!refinementInput.trim() || refining || !outfit) return
+
+    const instruction = refinementInput.trim()
+    setRefining(true)
+    setRefineError("")
+
+    try {
+      const history = refinementHistory.map(text => ({ role: "user", content: text }))
+      const lat = coords.current?.lat ?? null
+      const lon = coords.current?.lon ?? null
+      const data = await refineOutfit(
+        instruction,
+        history,
+        {
+          currentOutfit: outfit,
+          wardrobeItems: wardrobeItems.length > 0 ? wardrobeItems : outfit.items,
+        },
+        lat,
+        lon
+      )
+      const refined = parseRefinedOutfit(data)
+      if (!refined?.items?.length) {
+        throw new Error(data.response || "Não foi possível refinar o outfit.")
+      }
+      setOutfit(refined)
+      setRefinementHistory(prev => [...prev, instruction])
+      setRefinementInput("")
+      saveCache(user?.id, refined, weather, advisory)
+    } catch (err) {
+      setRefineError(err.message || "Erro ao refinar outfit.")
+    } finally {
+      setRefining(false)
+    }
+  }
+
+  function handleRestartRefine() {
+    setRefinementHistory([])
+    setRefinementInput("")
+    setRefineError("")
+    handleRegenerate()
+  }
+
   function handleRegenerate() {
     clearCache()
+    setRefinementHistory([])
+    setRefinementInput("")
+    setRefineError("")
     if (coords.current) {
       fetchOutfit(coords.current.lat, coords.current.lon, true)
     } else {
@@ -211,7 +302,58 @@ export default function OutfitsPage() {
         </div>
       )}
 
-      {!loading && outfit && <OutfitCard outfit={outfit} />}
+      {!loading && outfit && (
+        <>
+          <OutfitCard outfit={outfit} />
+          <OutfitRefineBar
+            input={refinementInput}
+            onInputChange={setRefinementInput}
+            onSubmit={handleRefine}
+            refining={refining}
+            error={refineError}
+            history={refinementHistory}
+            onRestart={handleRestartRefine}
+          />
+        </>
+      )}
+    </div>
+  )
+}
+
+function OutfitRefineBar({ input, onInputChange, onSubmit, refining, error, history, onRestart }) {
+  return (
+    <div className="outfit-refine-bar" style={{ marginTop: "24px" }}>
+      <form onSubmit={onSubmit} className="outfit-refine-form" style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+        <input
+          type="text"
+          className="search-input"
+          style={{ flex: "1 1 220px", minWidth: 0 }}
+          placeholder="Refina o teu outfit... ex: sem verde, muda os sapatos"
+          value={input}
+          onChange={e => onInputChange(e.target.value)}
+          disabled={refining}
+        />
+        <button type="submit" className="btn btn-primary" disabled={refining || !input.trim()}>
+          {refining ? "A refinar…" : "Enviar"}
+        </button>
+      </form>
+
+      {error && (
+        <p style={{ color: "var(--color-danger, #e55)", fontSize: "0.9rem", marginTop: "8px" }}>{error}</p>
+      )}
+
+      {history.length > 0 && (
+        <div className="outfit-refine-history" style={{ marginTop: "12px", display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
+          {history.map((instr, i) => (
+            <span key={i} className="filter-chip" style={{ fontSize: "0.85rem" }}>
+              {instr}
+            </span>
+          ))}
+          <button type="button" className="btn btn-secondary" style={{ fontSize: "0.85rem", padding: "6px 12px" }} onClick={onRestart} disabled={refining}>
+            Recomeçar
+          </button>
+        </div>
+      )}
     </div>
   )
 }

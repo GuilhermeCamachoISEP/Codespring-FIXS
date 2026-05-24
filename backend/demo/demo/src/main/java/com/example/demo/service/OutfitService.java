@@ -230,6 +230,10 @@ public class OutfitService {
         );
     }
 
+    public List<OutfitSuggestion> parseOutfitSuggestions(String json, List<WardrobeItem> items) {
+        return parseOutfits(json, items);
+    }
+
     private List<OutfitSuggestion> parseOutfits(String json, List<WardrobeItem> items) {
         try {
             Map<Long, WardrobeItem> itemMap = items.stream()
