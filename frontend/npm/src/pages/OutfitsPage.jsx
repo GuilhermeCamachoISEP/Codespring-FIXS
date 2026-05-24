@@ -131,10 +131,21 @@ export default function OutfitsPage() {
       setOutfit(cached.outfit)
       setWeather(cached.weather ?? null)
       setAdvisory(cached.advisory)
-      setWeatherLoading(false)
-      setWeatherUnavailable(!cached.weather)
       setLoading(false)
       if (cached.outfit) loadWardrobe()
+
+      if (!cached.weather) {
+        // Outfit cached without weather (geolocation was denied before) — try now
+        setWeatherLoading(true)
+        setWeatherUnavailable(false)
+        resolveGeolocation(GEO_TIMEOUT_MS).then(({ lat, lon }) => {
+          if (lat != null) coords.current = { lat, lon }
+          fetchWeather(lat, lon)
+        })
+      } else {
+        setWeatherLoading(false)
+        setWeatherUnavailable(false)
+      }
       return
     }
     requestGeolocationThenFetch(false)
@@ -425,14 +436,21 @@ function WeatherSection({ weather, advisory, loading, unavailable }) {
   }
   if (unavailable) {
     return (
-      <div className="weather-advisory" style={{ padding: "1.5rem", color: "var(--color-text-muted)", display: "flex", flexDirection: "column", height: "100%", margin: 0 }}>
-        Clima indisponível
+      <div className="weather-advisory" style={{ padding: "1.25rem 1.5rem", display: "flex", alignItems: "center", gap: "10px", margin: 0 }}>
+        <span style={{ fontSize: "1.4rem" }}>📍</span>
+        <div>
+          <div style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--color-text)" }}>Localização não disponível</div>
+          <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)" }}>
+            Permite o acesso à localização no browser para ver o clima e obter sugestões mais precisas
+          </div>
+        </div>
       </div>
     )
   }
   return (
-    <div className="weather-advisory" style={{ padding: "1.5rem", color: "var(--color-text-muted)", display: "flex", flexDirection: "column", height: "100%", margin: 0 }}>
-      Clima indisponível
+    <div className="weather-advisory" style={{ padding: "1.25rem 1.5rem", display: "flex", alignItems: "center", gap: "10px", margin: 0 }}>
+      <span style={{ fontSize: "1.4rem" }}>📍</span>
+      <div style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}>A obter localização…</div>
     </div>
   )
 }
