@@ -7,7 +7,7 @@ export default function Register() {
     const [name, setName] = useState("")
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
-    const [gender, setGender] = useState("Prefiro não dizer")
+    const [gender, setGender] = useState("Homem")
     const [error, setError] = useState("")
     const [loading, setLoading] = useState(false)
     const { saveAuth } = useAuth()
@@ -31,7 +31,7 @@ export default function Register() {
     return (
         <div className="auth-container">
             <div className="auth-card">
-                <div className="auth-logo">STYLIST AI</div>
+                <div className="auth-logo">Gaveta</div>
                 <h2>Criar conta</h2>
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
@@ -62,7 +62,6 @@ export default function Register() {
                             value={gender}
                             onChange={e => setGender(e.target.value)}
                         >
-                            <option value="Prefiro não dizer">Prefiro não dizer</option>
                             <option value="Homem">Homem</option>
                             <option value="Mulher">Mulher</option>
                         </select>

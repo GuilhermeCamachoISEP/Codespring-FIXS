@@ -35,10 +35,8 @@ const IMAGES_WOMEN = [
 export default function SwipeGallery() {
     const { user } = useAuth()
     
-    // Escolher a galeria baseada no género, ou misturar as duas se for "Prefiro não dizer"
-    const activeImages = user?.gender === "Mulher" ? IMAGES_WOMEN 
-                       : user?.gender === "Homem" ? IMAGES_MEN 
-                       : [...IMAGES_WOMEN.slice(0, 5), ...IMAGES_MEN.slice(0, 5)]
+    // Escolher a galeria estritamente baseada no género
+    const activeImages = user?.gender === "Mulher" ? IMAGES_WOMEN : IMAGES_MEN;
 
     const TOTAL = activeImages.length
     const [index, setIndex] = useState(0)

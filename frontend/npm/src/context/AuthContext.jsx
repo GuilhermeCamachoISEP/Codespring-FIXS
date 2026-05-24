@@ -14,10 +14,10 @@ export function AuthProvider({ children }) {
             id: authData.userId,
             email: authData.email,
             name: authData.name,
-            gender: authData.gender || "Prefiro não dizer"
+            gender: authData.gender || "Homem"
         }))
-        localStorage.setItem("gender", authData.gender || "Prefiro não dizer")
-        setUser({ id: authData.userId, email: authData.email, name: authData.name, gender: authData.gender || "Prefiro não dizer" })
+        localStorage.setItem("gender", authData.gender || "Homem")
+        setUser({ id: authData.userId, email: authData.email, name: authData.name, gender: authData.gender || "Homem" })
     }
 
     function logout() {
