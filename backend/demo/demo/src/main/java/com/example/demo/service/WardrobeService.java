@@ -1,7 +1,9 @@
 package com.example.demo.service;
 
+import com.example.demo.domain.OutfitReservation;
 import com.example.demo.domain.WardrobeItem;
 import com.example.demo.dto.ClothingMetadata;
+import com.example.demo.repository.OutfitReservationRepository;
 import com.example.demo.repository.WardrobeItemRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,13 +31,16 @@ public class WardrobeService {
     private String uploadDir;
 
     private final WardrobeItemRepository wardrobeItemRepository;
+    private final OutfitReservationRepository outfitReservationRepository;
     private final ClaudeService claudeService;
     private final ObjectMapper objectMapper;
 
     public WardrobeService(WardrobeItemRepository wardrobeItemRepository,
+                           OutfitReservationRepository outfitReservationRepository,
                            ClaudeService claudeService,
                            ObjectMapper objectMapper) {
         this.wardrobeItemRepository = wardrobeItemRepository;
+        this.outfitReservationRepository = outfitReservationRepository;
         this.claudeService = claudeService;
         this.objectMapper = objectMapper;
     }
@@ -82,12 +87,19 @@ public class WardrobeService {
         return wardrobeItemRepository.findByUserIdAndCategory(userId, category);
     }
 
-    public void deleteItem(Long userId, Long itemId) {
+    public void deleteItem(Long userId, Long itemId, boolean force) {
         WardrobeItem item = wardrobeItemRepository.findById(itemId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         if (!item.getUserId().equals(userId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
+
+        List<OutfitReservation> reservations = outfitReservationRepository.findByWardrobeItemId(itemId);
+        if (!reservations.isEmpty() && !force) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Item is reserved for an outfit");
+        }
+
+        outfitReservationRepository.deleteByWardrobeItemId(itemId);
         wardrobeItemRepository.delete(item);
     }
 

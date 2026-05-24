@@ -66,8 +66,9 @@ public class WardrobeController {
     @DeleteMapping("/wardrobe/{id}")
     public ResponseEntity<Void> delete(
             @RequestHeader("Authorization") String authHeader,
-            @PathVariable Long id) {
-        wardrobeService.deleteItem(extractUserId(authHeader), id);
+            @PathVariable Long id,
+            @RequestParam(value = "force", defaultValue = "false") boolean force) {
+        wardrobeService.deleteItem(extractUserId(authHeader), id, force);
         return ResponseEntity.noContent().build();
     }
 

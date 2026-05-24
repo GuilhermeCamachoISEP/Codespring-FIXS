@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react"
+import { motion } from "framer-motion"
 import { getOutfits, saveOutfitHistory } from "../services/api"
 import { useAuth } from "../context/AuthContext"
 import AppHeader from "../components/AppHeader"
@@ -259,8 +260,32 @@ function WeatherBar({ weather, advisory }) {
 }
 
 function OutfitCard({ outfit }) {
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.15
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { 
+      opacity: 1, 
+      y: 0,
+      transition: { type: "spring", stiffness: 300, damping: 24 }
+    }
+  };
+
   return (
-    <div className="outfit-card">
+    <motion.div 
+      className="outfit-card"
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3 }}
+    >
       <div className="outfit-card-header">
         <div className="outfit-card-name">{outfit.name}</div>
         <div className="outfit-card-desc">{outfit.description}</div>
@@ -271,9 +296,14 @@ function OutfitCard({ outfit }) {
           </div>
         )}
       </div>
-      <div className="outfit-card-items">
+      <motion.div 
+        className="outfit-card-items"
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+      >
         {outfit.items.map(item => (
-          <div key={item.id} className="outfit-card-item">
+          <motion.div key={item.id} className="outfit-card-item" variants={itemVariants}>
             <img
               src={item.imageUrl?.startsWith("http") ? item.imageUrl : `http://localhost:8080${item.imageUrl}`}
               alt={item.subcategory}
@@ -283,9 +313,9 @@ function OutfitCard({ outfit }) {
                 <span>{item.color} {item.subcategory}</span>
                 <span className="tag tag-category" style={{marginLeft: "4px"}}>{item.category}</span>
             </div>
-          </div>
+          </motion.div>
         ))}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

@@ -98,12 +98,15 @@ export async function getWardrobe(category) {
     return res.json()
 }
 
-export async function deleteWardrobeItem(id) {
-    const res = await fetch(`${API_URL}/wardrobe/${id}`, {
+export async function deleteWardrobeItem(id, force = false) {
+    const res = await fetch(`${API_URL}/wardrobe/${id}?force=${force}`, {
         method: "DELETE",
         headers: authHeaders()
     })
-    if (!res.ok) throw new Error(await res.text())
+    if (!res.ok) {
+        if (res.status === 409) throw new Error("RESERVED")
+        throw new Error(await res.text())
+    }
 }
 
 export async function getWardrobeCount() {

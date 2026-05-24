@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { motion } from "framer-motion"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import { getWardrobeCount, getWeather } from "../services/api"
@@ -58,9 +59,26 @@ export default function Dashboard() {
             </header>
 
             <div className="dashboard-content">
-                <div className="dashboard-grid">
+                <motion.div 
+                    className="dashboard-grid"
+                    initial="hidden"
+                    animate="show"
+                    variants={{
+                        hidden: { opacity: 0 },
+                        show: {
+                            opacity: 1,
+                            transition: { staggerChildren: 0.1 }
+                        }
+                    }}
+                >
                     {/* Wardrobe card */}
-                    <div className="dash-card" onClick={() => navigate("/wardrobe")}>
+                    <motion.div 
+                        className="dash-card" 
+                        onClick={() => navigate("/wardrobe")}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}
+                    >
                         <div className="dash-card-icon">👔</div>
                         <div className="dash-card-body">
                             <h3>O meu armário</h3>
@@ -73,40 +91,64 @@ export default function Dashboard() {
                             </p>
                         </div>
                         <span className="dash-arrow">→</span>
-                    </div>
+                    </motion.div>
 
                     {/* Upload card */}
-                    <div className="dash-card dash-card-accent" onClick={() => navigate("/wardrobe/upload")}>
+                    <motion.div 
+                        className="dash-card dash-card-accent" 
+                        onClick={() => navigate("/wardrobe/upload")}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}
+                    >
                         <div className="dash-card-icon">📷</div>
                         <div className="dash-card-body">
                             <h3>Adicionar roupa</h3>
                             <p>Groq classifica automaticamente</p>
                         </div>
                         <span className="dash-arrow">→</span>
-                    </div>
+                    </motion.div>
 
                     {/* Outfits card */}
-                    <div className="dash-card dash-card-accent" onClick={() => navigate("/outfits")}>
+                    <motion.div 
+                        className="dash-card dash-card-accent" 
+                        onClick={() => navigate("/outfits")}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}
+                    >
                         <div className="dash-card-icon">✨</div>
                         <div className="dash-card-body">
                             <h3>Os meus outfits</h3>
                             <p>Groq combina as tuas peças</p>
                         </div>
                         <span className="dash-arrow">→</span>
-                    </div>
+                    </motion.div>
 
                     {/* Chat AI Stylist card */}
-                    <div className="dash-card dash-card-accent" onClick={() => navigate("/chat")}>
+                    <motion.div 
+                        className="dash-card dash-card-accent" 
+                        onClick={() => navigate("/chat")}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}
+                    >
                         <div className="dash-card-icon">💬</div>
                         <div className="dash-card-body">
                             <h3>AI Stylist Chat</h3>
                             <p>Conversa com o teu assistente pessoal</p>
                         </div>
                         <span className="dash-arrow">→</span>
-                    </div>
+                    </motion.div>
 
                     {/* Weather card */}
-                    <div className="dash-card dash-card-weather" onClick={() => navigate("/outfits")}>
+                    <motion.div 
+                        className="dash-card dash-card-weather" 
+                        onClick={() => navigate("/outfits")}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        variants={{ hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } }}
+                    >
                         {weatherState === "loading" && <>
                             <div className="dash-card-icon">🌤</div>
                             <div className="dash-card-body">
@@ -131,8 +173,8 @@ export default function Dashboard() {
                             </div>
                             <button className="dash-weather-retry" onClick={e => { e.stopPropagation(); fetchWeather() }}>↺</button>
                         </>}
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             </div>
         </div>
     )

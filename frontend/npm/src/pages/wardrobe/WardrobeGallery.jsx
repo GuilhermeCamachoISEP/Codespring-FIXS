@@ -35,13 +35,20 @@ export default function WardrobeGallery() {
     }
   }
 
-  async function handleDelete(id) {
+  async function handleDelete(id, force = false) {
     try {
-      await deleteWardrobeItem(id)
+      await deleteWardrobeItem(id, force)
       setItems(prev => prev.filter(i => i.id !== id))
       if (selected?.id === id) setSelected(null)
     } catch (err) {
-      console.error(err)
+      if (err.message === "RESERVED") {
+          const confirmDelete = window.confirm("⚠️ Esta peça está reservada num dos teus outfits/eventos planeados!\n\nQueres mesmo apagá-la? (O outfit será afetado)")
+          if (confirmDelete) {
+              handleDelete(id, true)
+          }
+      } else {
+          console.error(err)
+      }
     }
   }
 

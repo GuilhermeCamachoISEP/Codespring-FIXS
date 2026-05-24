@@ -5,6 +5,7 @@ import com.example.demo.domain.WardrobeItem;
 import com.example.demo.dto.ChatRequest;
 import com.example.demo.dto.ChatResponse;
 import com.example.demo.dto.WeatherData;
+import com.example.demo.repository.OutfitReservationRepository;
 import com.example.demo.repository.UserPreferencesRepository;
 import com.example.demo.repository.WardrobeItemRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -17,6 +18,7 @@ import java.util.List;
 public class ChatService {
 
     private final WardrobeItemRepository wardrobeItemRepository;
+    private final OutfitReservationRepository outfitReservationRepository;
     private final UserPreferencesRepository preferencesRepository;
     private final ClaudeService claudeService;
     private final WeatherService weatherService;
@@ -24,12 +26,14 @@ public class ChatService {
     private final ObjectMapper objectMapper;
 
     public ChatService(WardrobeItemRepository wardrobeItemRepository,
+                       OutfitReservationRepository outfitReservationRepository,
                        UserPreferencesRepository preferencesRepository,
                        ClaudeService claudeService,
                        WeatherService weatherService,
                        GoogleImageSearchService googleImageSearchService,
                        ObjectMapper objectMapper) {
         this.wardrobeItemRepository = wardrobeItemRepository;
+        this.outfitReservationRepository = outfitReservationRepository;
         this.preferencesRepository = preferencesRepository;
         this.claudeService = claudeService;
         this.weatherService = weatherService;
@@ -107,6 +111,7 @@ public class ChatService {
                     System.out.println("[DEBUG-CHAT] Attempting to delete ID: " + idToDel);
                     wardrobeItemRepository.findById(idToDel).ifPresent(item -> {
                         if (item.getUserId().equals(userId)) {
+                            outfitReservationRepository.deleteByWardrobeItemId(idToDel);
                             wardrobeItemRepository.delete(item);
                             System.out.println("[DEBUG-CHAT] Successfully deleted item ID: " + idToDel);
                         }
