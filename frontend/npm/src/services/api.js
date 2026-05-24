@@ -132,6 +132,27 @@ export async function saveOutfitHistory(outfitItems) {
     return res.json()
 }
 
+export async function getOutfitHistory() {
+    const res = await fetch(`${API_URL}/outfits/history`, { headers: authHeaders() })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+}
+
+export async function getLikedOutfits() {
+    const res = await fetch(`${API_URL}/outfits/history/liked`, { headers: authHeaders() })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+}
+
+export async function toggleOutfitLike(id) {
+    const res = await fetch(`${API_URL}/outfits/history/${id}/like`, { 
+        method: "PATCH",
+        headers: authHeaders() 
+    })
+    if (!res.ok) throw new Error(await res.text())
+    return res.json()
+}
+
 export async function getWeather(lat, lon) {
     const res = await fetch(`${API_URL}/weather?lat=${lat}&lon=${lon}`, { headers: authHeaders() })
     if (!res.ok) throw new Error(await res.text())

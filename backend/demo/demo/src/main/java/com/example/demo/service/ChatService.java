@@ -508,12 +508,15 @@ public class ChatService {
                 } else {
                     System.out.println("[DEBUG-CHAT] SerpApi SUCCESS, url: " + imageUrl);
                 }
+
+                String category = itemNode.isObject() && itemNode.has("category") ? itemNode.get("category").asText() : "tops";
+                String color = itemNode.isObject() && itemNode.has("color") ? itemNode.get("color").asText() : "";
                 
                 WardrobeItem newItem = WardrobeItem.builder()
                         .userId(userId)
-                        .category("tops") // generic fallback
+                        .category(category)
                         .subcategory(itemName)
-                        .color("")
+                        .color(color)
                         .fit("regular")
                         .material("")
                         .brand("")
@@ -602,13 +605,24 @@ public class ChatService {
                 - MANTÉM TUDO EM PORTUGUÊS DE PORTUGAL. A tua resposta TEM DE SER na língua do utilizador.
 
                 MUITO IMPORTANTE (ATUALIZAÇÃO DE ARMÁRIO):
-                Se o utilizador mencionar peças que quer adicionar (ex: "comprei uma t-shirt preta, um cachecol e umas meias"), tens OBRIGATORIAMENTE de devolver um bloco JSON no final da mensagem para guardar TODAS as peças no array "confirmed". Podes e deves guardar múltiplas peças ao mesmo tempo!
-                Se o utilizador disser que se enganou ou quiser corrigir uma peça anterior (ex: "não era azul, era vermelha"), usa o campo "deleted" com o ID numérico exato da peça antiga (que está no teu context 'known_wardrobe') e o "confirmed" com o nome da peça nova.
-
-                Exemplo do formato JSON obrigatório (usa sempre os ```json):
+                O mundo da moda é muito detalhado! Se o utilizador mencionar peças que quer adicionar mas a informação for vaga, NÃO devolvas o bloco JSON imediatamente. Tens de fazer perguntas de clarificação para teres a certeza absoluta de 3 coisas fundamentais antes de guardares:
+                1. A Cor exata
+                2. O Tipo/Corte exato (ex: calças cargo, t-shirt decote em V, casaco bomber, fit oversized vs slim)
+                3. O Material (ex: ganga/denim, algodão, cabedal, linho)
+                
+                Exemplo: Se o utilizador disser "Comprei um casaco", tu perguntas "Boa! De que cor é? É de cabedal, ganga ou outro material? E é mais justo ou largo?".
+                O teu objetivo é manter o contexto da conversa. Se eles responderem "preto de cabedal justo", tu lembras-te que estavam a falar de um casaco e avanças.
+                
+                Apenas quando tiveres a certeza do nome super detalhado (ex: "Casaco de cabedal preto slim"), categoria e cor, devolve OBRIGATORIAMENTE um bloco JSON no final da mensagem.
+                Para cada peça nova em "confirmed", precisas de devolver um objeto com "name", "category" (tops, bottoms, shoes, jackets, accessories) e "color".
+                
+                Exemplo do formato JSON obrigatório (usa sempre os ```json e NUNCA o devolvas se ainda estiveres a fazer perguntas de clarificação):
                 ```json
                 {
-                  "confirmed": ["t-shirt preta", "cachecol", "meias"],
+                  "confirmed": [
+                    {"name": "t-shirt básica", "category": "tops", "color": "preta"},
+                    {"name": "sapatilhas", "category": "shoes", "color": "brancas"}
+                  ],
                   "deleted": [102]
                 }
                 ```

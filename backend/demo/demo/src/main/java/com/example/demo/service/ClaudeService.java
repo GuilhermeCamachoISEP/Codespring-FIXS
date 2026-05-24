@@ -25,8 +25,10 @@ import jakarta.annotation.PostConstruct;
 public class ClaudeService {
 
     private static final String GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+    private static final String GROQ_EMBEDDINGS_URL = "https://api.groq.com/openai/v1/embeddings";
     private static final String VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
     private static final String TEXT_MODEL = "llama-3.3-70b-versatile";
+    private static final String EMBEDDING_MODEL = "nomic-embed-text-v1_5";
 
     @Value("${groq.api.key:}")
     private String apiKey;
@@ -261,6 +263,66 @@ public class ClaudeService {
         requestBody.set("messages", messagesArray);
 
         return objectMapper.writeValueAsString(requestBody);
+    }
+
+    // ─── Embeddings & Semantic Search ────────────────────────────────────────
+
+    public List<double[]> getEmbeddings(List<String> texts) {
+        try {
+            if (!isConfigured() || texts.isEmpty()) return List.of();
+            
+            var requestBody = objectMapper.createObjectNode();
+            requestBody.put("model", EMBEDDING_MODEL);
+            var inputArray = requestBody.putArray("input");
+            texts.forEach(inputArray::add);
+                    
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(GROQ_EMBEDDINGS_URL))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(requestBody)))
+                    .build();
+                    
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            
+            if (response.statusCode() != 200) {
+                System.err.println("Groq Embeddings error " + response.statusCode() + ": " + response.body());
+                return List.of();
+            }
+            
+            JsonNode root = objectMapper.readTree(response.body());
+            JsonNode dataNode = root.path("data");
+            
+            List<double[]> results = new java.util.ArrayList<>();
+            if (dataNode.isArray()) {
+                for (JsonNode item : dataNode) {
+                    JsonNode embeddingNode = item.path("embedding");
+                    double[] vec = new double[embeddingNode.size()];
+                    for (int i = 0; i < embeddingNode.size(); i++) {
+                        vec[i] = embeddingNode.get(i).asDouble();
+                    }
+                    results.add(vec);
+                }
+            }
+            return results;
+        } catch (Exception e) {
+            System.err.println("Failed to get embeddings: " + e.getMessage());
+            return List.of();
+        }
+    }
+
+    public double cosineSimilarity(double[] vectorA, double[] vectorB) {
+        if (vectorA == null || vectorB == null || vectorA.length != vectorB.length || vectorA.length == 0) return 0.0;
+        double dotProduct = 0.0;
+        double normA = 0.0;
+        double normB = 0.0;
+        for (int i = 0; i < vectorA.length; i++) {
+            dotProduct += vectorA[i] * vectorB[i];
+            normA += Math.pow(vectorA[i], 2);
+            normB += Math.pow(vectorB[i], 2);
+        }
+        if (normA == 0.0 || normB == 0.0) return 0.0;
+        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
     }
 
     /**
